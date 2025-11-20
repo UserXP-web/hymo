@@ -26,7 +26,7 @@ case "$ABI" in
 esac
 
 # Verify the selected binary exists
-if [ ! -f "$MODPATH/$ARCH_BINARY" ]; then
+if [ ! -f "$MODPATH/bin/$ARCH_BINARY" ]; then
     abort "! Binary not found: $ARCH_BINARY"
 fi
 
