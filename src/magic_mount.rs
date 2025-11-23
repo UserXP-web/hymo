@@ -218,6 +218,7 @@ fn collect_module_files(module_dir: &Path, extra_partitions: &[String]) -> Resul
     let mut system = Node::new_root("system");
     let module_root = module_dir;
     let mut has_file = false;
+    let module_system = module_root.join("system").is_dir();
 
     for entry in module_root.read_dir()?.flatten() {
         if !entry.file_type()?.is_dir() {
@@ -231,8 +232,7 @@ fn collect_module_files(module_dir: &Path, extra_partitions: &[String]) -> Resul
             continue;
         }
 
-        let mod_system = entry.path().join("system");
-        if !mod_system.is_dir() {
+        if !module_system {
             continue;
         }
 
