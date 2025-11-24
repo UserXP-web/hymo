@@ -10,8 +10,13 @@ LOG_FILE="$BASE_DIR/daemon.log"
 # Ensure base directory exists
 mkdir -p "$BASE_DIR"
 
+# Clean previous log on boot
+if [ -f "$LOG_FILE" ]; then
+    rm "$LOG_FILE"
+fi
+
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [Wrapper] $1" >> "$LOG_FILE"
+    echo "[Wrapper] $1" >> "$LOG_FILE"
 }
 
 log "Starting Hybrid Mount..."
