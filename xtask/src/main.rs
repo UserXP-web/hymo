@@ -2,14 +2,14 @@ mod zip_ext;
 
 use std::{
     env,
-    fs, // Removed `File` as it's not used here
+    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use fs_extra::dir; // Removed `file` as we use fs::copy instead
+use fs_extra::dir;
 use zip::{write::FileOptions, CompressionMethod};
 
 use crate::zip_ext::zip_create_from_directory_with_options;
@@ -121,7 +121,8 @@ fn main() -> Result<()> {
 
             // 8. Zip Package
             println!(":: Creating zip archive...");
-            let options = FileOptions::<()>::default()
+            // 修复点：移除了 ::<()>
+            let options = FileOptions::default()
                 .compression_method(CompressionMethod::Deflated)
                 .compression_level(Some(9));
             
