@@ -11,7 +11,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result, bail};
+// Removed 'bail' from imports to fix unused import warning
+use anyhow::{Context, Result};
 use rustix::{
     fs::{Gid, Mode, Uid, chmod, chown},
     mount::{
@@ -155,8 +156,7 @@ fn do_magic_mount<P: AsRef<Path>, WP: AsRef<Path>>(
         NodeFileType::Directory => {
             let mut create_tmpfs = !has_tmpfs && current.replace && current.module_path.is_some();
             if !has_tmpfs && !create_tmpfs {
-                // Use into_iter to allow mutable access to children logic without borrowing issues if possible,
-                // but here we are iterating to check.
+                // Use mutable iterator to allow modifying node.skip
                 for (name, node) in &mut current.children {
                     let real_path = path.join(name);
                     let need = match node.file_type {
@@ -169,18 +169,17 @@ fn do_magic_mount<P: AsRef<Path>, WP: AsRef<Path>>(
                             } else { true }
                         }
                     };
-                    
                     if need {
                         if current.module_path.is_none() {
                             log::error!(
-                                "Cannot create tmpfs on {} (no module source), skipping child: {}",
+                                "Cannot create tmpfs on {} (no module source), ignoring conflicting child: {}",
                                 path.display(),
                                 name
                             );
                             node.skip = true;
                             continue;
                         }
-                        
+
                         create_tmpfs = true;
                         break;
                     }
