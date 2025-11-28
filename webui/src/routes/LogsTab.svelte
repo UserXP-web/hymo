@@ -2,6 +2,7 @@
   import { store } from '../lib/store.svelte';
   import { ICONS } from '../lib/constants';
   import { onMount, tick } from 'svelte';
+  import Skeleton from '../components/Skeleton.svelte';
   import './LogsTab.css';
 
   let searchLogQuery = $state('');
@@ -41,7 +42,7 @@
     const text = filteredLogs.map(l => l.text).join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      store.showToast(store.L.logs.copySuccess);
+      store.showToast(store.L.logs.copySuccess, 'success');
     } catch (e) {
       store.showToast(store.L.logs.copyFail, 'error');
     }
@@ -78,7 +79,11 @@
 
 <div class="log-container" bind:this={logContainer}>
   {#if store.loading.logs}
-    <div style="padding: 20px; text-align: center;">{store.L.logs.loading}</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      {#each Array(10) as _, i}
+        <Skeleton width="{60 + (i % 3) * 20}%" height="14px" />
+      {/each}
+    </div>
   {:else if filteredLogs.length === 0}
     <div style="padding: 20px; text-align: center;">
       {store.logs.length === 0 ? store.L.logs.empty : "No matching logs"}

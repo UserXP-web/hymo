@@ -2,6 +2,7 @@
   import { store } from '../lib/store.svelte';
   import { ICONS } from '../lib/constants';
   import { onMount } from 'svelte';
+  import Skeleton from '../components/Skeleton.svelte';
   import './ModulesTab.css';
 
   let searchQuery = $state('');
@@ -45,8 +46,18 @@
 </div>
 
 {#if store.loading.modules}
-  <div style="text-align:center; padding: 40px; opacity: 0.6">
-    {store.L.modules.scanning}
+  <div class="rules-list">
+    {#each Array(5) as _}
+      <div class="rule-card">
+        <div class="rule-info">
+          <div style="display:flex; flex-direction:column; gap: 6px; width: 100%;">
+            <Skeleton width="60%" height="20px" />
+            <Skeleton width="40%" height="14px" />
+          </div>
+        </div>
+        <Skeleton width="120px" height="40px" borderRadius="4px" />
+      </div>
+    {/each}
   </div>
 {:else if filteredModules.length === 0}
   <div style="text-align:center; padding: 40px; opacity: 0.6">
