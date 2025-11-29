@@ -1,12 +1,11 @@
-## v0.2.6-@060b70d-g060b70d
+## v0.2.6-@44b3998-g44b3998
 
-Changes since v0.2.6-@3f15668:
-* fix(core): resolve build error in utils and unused import in storage
-* 	modified:   Cargo.toml
-* refactor(core): implement centralized JSON state management and update consumers
-* fix(core): remove unused dynamic mount point functions to resolve build warnings
-* feat(installer): disable ext4 journal on image creation to prevent jbd2 detection
-* perf: replace system allocator with mimalloc for improved performance
-* fix(core): prune stale or disabled modules from storage during sync to prevent zombie mounts
-* fix(core): disable dynamic decoy mount point and enforce static path at /data/adb/meta-hybrid/mnt
-* [skip ci] Update KernelSU json and changelog for v0.2.6-@3f15668
+Changes since v0.2.6-@060b70d:
+* fix(core): import Path struct in main.rs to resolve compilation errors
+* fix(core): import PathBuf in modules.rs and clean up main imports
+* refactor: reorganize source code into conf, core, and mount modules
+* Merge branch 'refactor/mount-planner'
+* fix(core): remove unused imports in main and executor to resolve build warnings
+* fix(core): implement overlay fallback mechanism and return execution stats
+* refactor(core): decouple logic with Mount Planner and Executor
+* [skip ci] Update KernelSU json and changelog for v0.2.6-@060b70d
