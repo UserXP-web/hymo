@@ -61,6 +61,8 @@ pub fn generate(
 
             for part in &target_partitions {
                 let part_path = content_path.join(part);
+                
+                // Skip mounting if the module partition directory is empty
                 if part_path.is_dir() && has_files(&part_path) {
                     partition_layers.entry(part.to_string())
                         .or_default()
@@ -74,7 +76,8 @@ pub fn generate(
             } else {
                 // If it has content but not in standard partitions, check magic fallback
                 if has_meaningful_content(&content_path, &target_partitions) {
-                     // Fallback logic if needed
+                     // Fallback logic for non-standard paths could be added here if needed
+                     // currently we focus on standard partitions for overlay
                 }
             }
         }
@@ -82,21 +85,35 @@ pub fn generate(
 
     // Construct Overlay Operations
     for (part, layers) in partition_layers {
-        let target_path = format!("/{}", part);
-        let target = Path::new(&target_path);
-        
-        if target.read_link().is_ok() {
-            log::info!("Planner: Skipping {} because it is a symlink", target_path);
+        let initial_target_path = format!("/{}", part);
+        let target_path_obj = Path::new(&initial_target_path);
+        let resolved_target = if target_path_obj.is_symlink() || target_path_obj.exists() {
+            match target_path_obj.canonicalize() {
+                Ok(p) => {
+                    if p != target_path_obj {
+                        log::debug!("Planner: Resolved symlink {} -> {}", initial_target_path, p.display());
+                    }
+                    p
+                },
+                Err(e) => {
+                    log::warn!("Planner: Failed to resolve path {}: {}. Skipping.", initial_target_path, e);
+                    continue;
+                }
+            }
+        } else {
+            // Path doesn't exist, cannot mount on it
             continue;
-        }
+        };
 
         // Double check if target exists and is a directory
-        if !target.is_dir() {
+        if !resolved_target.is_dir() {
+            log::warn!("Planner: Target {} is not a directory, skipping", resolved_target.display());
             continue;
         }
 
+        // Use the resolved, absolute path as the target for OverlayFS
         plan.overlay_ops.push(OverlayOperation {
-            target: target_path,
+            target: resolved_target.to_string_lossy().to_string(),
             lowerdirs: layers,
         });
     }
@@ -121,6 +138,7 @@ fn has_files(path: &Path) -> bool {
     false
 }
 
+// Check if the module has content in any of the target partitions
 fn has_meaningful_content(base: &Path, partitions: &[&str]) -> bool {
     for part in partitions {
         let p = base.join(part);
