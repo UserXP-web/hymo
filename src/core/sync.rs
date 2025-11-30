@@ -1,16 +1,17 @@
 // src/core/sync.rs
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use anyhow::Result;
 use crate::{defs, utils, core::inventory::Module};
 
 /// Synchronizes enabled modules from source to the prepared storage.
-/// Also handles SELinux context repair.
+/// Implements a smart sync strategy to avoid unnecessary I/O.
 pub fn perform_sync(modules: &[Module], target_base: &Path) -> Result<()> {
-    log::info!("Starting module sync to {}", target_base.display());
+    log::info!("Starting smart module sync to {}", target_base.display());
 
-    // 1. Wipe storage (Clean slate)
-    wipe_storage(target_base)?;
+    // 1. Prune orphaned directories (Cleanup disabled/removed modules)
+    prune_orphaned_modules(modules, target_base)?;
 
     // 2. Sync each module
     for module in modules {
@@ -23,12 +24,24 @@ pub fn perform_sync(modules: &[Module], target_base: &Path) -> Result<()> {
         });
 
         if has_content {
-            log::debug!("Syncing module: {}", module.id);
-            if let Err(e) = utils::sync_dir(&module.source_path, &dst) {
-                log::error!("Failed to sync module {}: {}", module.id, e);
+            if should_sync(&module.source_path, &dst) {
+                log::info!("Syncing module: {} (Updated/New)", module.id);
+                
+                // Ensure clean state for this module before copying
+                if dst.exists() {
+                    if let Err(e) = fs::remove_dir_all(&dst) {
+                        log::warn!("Failed to clean target dir for {}: {}", module.id, e);
+                    }
+                }
+
+                if let Err(e) = utils::sync_dir(&module.source_path, &dst) {
+                    log::error!("Failed to sync module {}: {}", module.id, e);
+                } else {
+                    // 3. Context Mirroring (Only needed after a fresh sync)
+                    repair_module_contexts(&dst, &module.id);
+                }
             } else {
-                // 3. Context Mirroring
-                repair_module_contexts(&dst, &module.id);
+                log::debug!("Skipping module: {} (Up-to-date)", module.id);
             }
         } else {
             log::debug!("Skipping empty module: {}", module.id);
@@ -38,27 +51,60 @@ pub fn perform_sync(modules: &[Module], target_base: &Path) -> Result<()> {
     Ok(())
 }
 
-fn wipe_storage(target: &Path) -> Result<()> {
-    if !target.exists() { return Ok(()); }
-    
-    for entry in fs::read_dir(target)? {
+/// Removes directories in the target base that do not correspond to any active module.
+fn prune_orphaned_modules(modules: &[Module], target_base: &Path) -> Result<()> {
+    if !target_base.exists() { return Ok(()); }
+
+    let active_ids: HashSet<&str> = modules.iter().map(|m| m.id.as_str()).collect();
+
+    for entry in fs::read_dir(target_base)? {
         let entry = entry?;
         let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
+        let name_os = entry.file_name();
+        let name = name_os.to_string_lossy();
 
+        // Skip internal files/dirs
         if name == "lost+found" || name == "meta-hybrid" { continue; }
 
-        if path.is_dir() {
-            if let Err(e) = fs::remove_dir_all(&path) {
-                log::warn!("Failed to delete dir {}: {}", name, e);
-            }
-        } else {
-            if let Err(e) = fs::remove_file(&path) {
-                log::warn!("Failed to delete file {}: {}", name, e);
+        if !active_ids.contains(name.as_ref()) {
+            log::info!("Pruning orphaned module storage: {}", name);
+            if path.is_dir() {
+                if let Err(e) = fs::remove_dir_all(&path) {
+                    log::warn!("Failed to remove orphan dir {}: {}", name, e);
+                }
+            } else {
+                if let Err(e) = fs::remove_file(&path) {
+                    log::warn!("Failed to remove orphan file {}: {}", name, e);
+                }
             }
         }
     }
     Ok(())
+}
+
+/// Determines if a module needs to be synced.
+/// Compares `module.prop` content as a heuristic for version/content changes.
+fn should_sync(src: &Path, dst: &Path) -> bool {
+    if !dst.exists() {
+        return true;
+    }
+
+    // Compare module.prop
+    let src_prop = src.join("module.prop");
+    let dst_prop = dst.join("module.prop");
+
+    if !src_prop.exists() || !dst_prop.exists() {
+        // If prop file is missing in either, force sync to be safe
+        return true;
+    }
+
+    // Read and compare contents
+    // We use read_to_string/bytes. If checking file size/mtime is preferred for speed,
+    // we could do that, but content check is more robust against 'touch'.
+    match (fs::read(&src_prop), fs::read(&dst_prop)) {
+        (Ok(s), Ok(d)) => s != d, // Sync if content differs
+        _ => true, // Sync on IO errors
+    }
 }
 
 fn repair_module_contexts(module_root: &Path, module_id: &str) {
