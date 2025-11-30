@@ -1,10 +1,10 @@
-// meta-hybrid_mount/src/core/modules.rs
+// src/core/modules.rs
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::Serialize;
-use crate::{conf::config, defs, utils, core::state};
+use crate::{conf::config, defs, core::state};
 
 #[derive(Serialize)]
 struct ModuleInfo {
@@ -30,6 +30,7 @@ fn read_prop(path: &Path, key: &str) -> Option<String> {
 
 // Check if a directory recursively contains any files (or symlinks/devices)
 // Returns true if at least one non-directory entry is found.
+// Used by print_list to determine if a module is "effective".
 fn has_files_recursive(path: &Path) -> bool {
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
@@ -89,107 +90,6 @@ pub fn update_description(storage_mode: &str, nuke_active: bool, overlay_count: 
     }
 }
 
-pub fn scan_enabled_ids(metadata_dir: &Path) -> Result<Vec<String>> {
-    let mut ids = Vec::new();
-    if !metadata_dir.exists() { return Ok(ids); }
-    for entry in fs::read_dir(metadata_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if !path.is_dir() { continue; }
-        let id = entry.file_name().to_string_lossy().to_string();
-        if id == "meta-hybrid" || id == "lost+found" { continue; }
-        if path.join(defs::DISABLE_FILE_NAME).exists() || path.join(defs::REMOVE_FILE_NAME).exists() || path.join(defs::SKIP_MOUNT_FILE_NAME).exists() { continue; }
-        ids.push(id);
-    }
-    Ok(ids)
-}
-
-/// Recursively fix SELinux contexts of a module by mirroring from the real system.
-fn repair_contexts(module_root: &Path, current_path: &Path) -> Result<()> {
-    if !current_path.exists() { return Ok(()); }
-    let relative = current_path.strip_prefix(module_root)?;
-    let system_path = Path::new("/").join(relative);
-    if system_path.exists() {
-        if let Err(e) = utils::copy_path_context(&system_path, current_path) {
-            log::debug!("Failed to mirror context for {}: {}", relative.display(), e);
-        }
-    } else {
-        // If system path doesn't exist, rely on initial copy or inheritance
-    }
-
-    if current_path.is_dir() {
-        for entry in fs::read_dir(current_path)? {
-            let entry = entry?;
-            repair_contexts(module_root, &entry.path())?;
-        }
-    }
-    Ok(())
-}
-
-pub fn sync_active(source_dir: &Path, target_base: &Path) -> Result<()> {
-    log::info!("Syncing modules from {} to {}", source_dir.display(), target_base.display());
-    let ids = scan_enabled_ids(source_dir)?;
-    log::debug!("Found {} enabled modules to sync.", ids.len());
-    
-    // 1. Wipe storage completely (Force clean start)
-    if target_base.exists() {
-        log::info!("Wiping storage for fresh sync...");
-        for entry in fs::read_dir(target_base)? {
-            let entry = entry?;
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().to_string();
-            
-            // Preserve lost+found (fsck) and meta-hybrid (internal)
-            if name == "lost+found" || name == "meta-hybrid" { continue; }
-
-            if path.is_dir() {
-                if let Err(e) = fs::remove_dir_all(&path) {
-                    log::warn!("Failed to wipe directory {}: {}", name, e);
-                }
-            } else {
-                if let Err(e) = fs::remove_file(&path) {
-                    log::warn!("Failed to wipe file {}: {}", name, e);
-                }
-            }
-        }
-    }
-
-    // 2. Sync enabled modules
-    for id in ids {
-        let src = source_dir.join(&id);
-        let dst = target_base.join(&id);
-        
-        // Check if any partition directory has ACTUAL files inside recursively
-        let has_content = defs::BUILTIN_PARTITIONS.iter().any(|p| {
-            let part_path = src.join(p);
-            part_path.exists() && has_files_recursive(&part_path)
-        });
-        
-        if has_content {
-            log::debug!("Syncing module: {}", id);
-            // Native cp_r will create the destination dir
-            if let Err(e) = utils::sync_dir(&src, &dst) {
-                log::error!("Failed to sync module {}: {}", id, e);
-            } else {
-                // 3. Context Mirroring Pass
-                log::debug!("Repairing SELinux contexts for {}", id);
-                for part in defs::BUILTIN_PARTITIONS {
-                    let part_root = dst.join(part);
-                    if part_root.exists() {
-                        if let Err(e) = repair_contexts(&dst, &part_root) {
-                            log::warn!("Context repair failed for {}/{}: {}", id, part, e);
-                        }
-                    }
-                }
-            }
-        } else {
-            // Module is empty, since we wiped storage, we just do nothing.
-            log::debug!("Skipping sync for empty module: {}", id);
-        }
-    }
-    Ok(())
-}
-
 pub fn print_list(config: &config::Config) -> Result<()> {
     let module_modes = config::load_module_modes();
     let modules_dir = &config.moduledir;
@@ -211,8 +111,9 @@ pub fn print_list(config: &config::Config) -> Result<()> {
             if id == "meta-hybrid" || id == "lost+found" { continue; }
             if path.join(defs::DISABLE_FILE_NAME).exists() || path.join(defs::REMOVE_FILE_NAME).exists() || path.join(defs::SKIP_MOUNT_FILE_NAME).exists() { continue; }
 
-            // Check content recursively to match sync_active logic
+            // Check content recursively to determine if the module effectively has content.
             // We check both source (if not mounted yet) and destination (if mounted)
+            // ensuring that even if storage is empty, we report what *should* be there from source.
             let has_content = defs::BUILTIN_PARTITIONS.iter().any(|p| {
                 let p_src = path.join(p);
                 let p_dst = mnt_base.join(&id).join(p);
@@ -231,6 +132,7 @@ pub fn print_list(config: &config::Config) -> Result<()> {
             }
         }
     }
+    // Sort alphabetically by name for display
     modules.sort_by(|a, b| a.name.cmp(&b.name));
     println!("{}", serde_json::to_string(&modules)?);
     Ok(())
