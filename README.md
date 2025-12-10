@@ -52,7 +52,12 @@ wget https://raw.githubusercontent.com/Anatdx/hymo/refs/heads/master/patch/hymof
 patch -p1 -F 3 < hymofs.patch
 echo "CONFIG_HYMOFS=y" >> ./common/arch/arm64/configs/gki_defconfig # Write to defconfig
 ```
-
+Or if you are using susfs, add this **AFTER** the susfs patch：
+```bash
+wget https://raw.githubusercontent.com/Anatdx/hymo/refs/heads/master/patch/dirtyhymofs.patch
+patch -p1 -F 3 < dirtyhymofs.patch
+echo "CONFIG_HYMOFS=y" >> ./common/arch/arm64/configs/gki_defconfig # Write to defconfig
+```
 **Build Commands**:
 ```bash
 # Compile all architectures and package
