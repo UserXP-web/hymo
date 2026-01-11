@@ -194,6 +194,13 @@ case $COMMAND in
         build_target hymod-x86_64
         ;;
     package)
+        if [[ ! -d "${BUILD_DIR}" ]]; then
+            init_build
+        fi
+        if [[ $NO_WEBUI -eq 0 ]]; then
+            build_target webui
+        fi
+        build_target all
         build_target package
         ;;
     testzip)
