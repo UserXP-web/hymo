@@ -2,7 +2,7 @@ import { useStore } from '@/store'
 import { X } from 'lucide-react'
 
 export function ToastContainer() {
-  const { toasts, removeToast } = useStore()
+  const { toasts, removeToast } = useStore((state) => state)
 
   if (!toasts.length) return null
 

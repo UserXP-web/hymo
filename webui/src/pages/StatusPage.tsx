@@ -5,7 +5,7 @@ import { HardDrive, Package, Layers } from 'lucide-react'
 import { BUILTIN_PARTITIONS } from '@/types'
 
 export function StatusPage() {
-  const { t, storage, modules, systemInfo, config, activePartitions, loadStatus } = useStore()
+  const { t, storage, modules, systemInfo, config, activePartitions, loadStatus } = useStore((state) => state)
 
   useEffect(() => {
     loadStatus()

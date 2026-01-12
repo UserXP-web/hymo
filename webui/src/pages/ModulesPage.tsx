@@ -5,7 +5,7 @@ import { Card, Button, Input, Select, Badge } from '@/components/ui'
 import { Search, Plus, Trash2, AlertCircle, ChevronDown, ChevronUp, Play, Pause, Loader2 } from 'lucide-react'
 
 export function ModulesPage() {
-  const { t, modules, loadModules, updateModule, saveModules, systemInfo, loadStatus } = useStore()
+  const { t, modules, loadModules, updateModule, saveModules, systemInfo, loadStatus } = useStore((state) => state)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterMode, setFilterMode] = useState('all')
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
@@ -14,7 +14,7 @@ export function ModulesPage() {
   const [togglingMount, setTogglingMount] = useState<Set<string>>(new Set())
 
   const modulesRef = useRef(modules)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     if (JSON.stringify(modules) === JSON.stringify(modulesRef.current)) return

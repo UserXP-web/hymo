@@ -5,12 +5,12 @@ import { Card, Button, Input, Switch } from '@/components/ui'
 import { Plus, X, Scan } from 'lucide-react'
 
 export function ConfigPage() {
-  const { t, config, showAdvanced, setShowAdvanced, updateConfig, saveConfig, useSystemFont, setUseSystemFont } = useStore()
+  const { t, config, showAdvanced, setShowAdvanced, updateConfig, saveConfig, useSystemFont, setUseSystemFont } = useStore((state) => state)
   const [newPartition, setNewPartition] = useState('')
   const [scanning, setScanning] = useState(false)
   
   const configRef = useRef(config)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     if (JSON.stringify(config) === JSON.stringify(configRef.current)) return
