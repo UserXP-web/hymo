@@ -34,7 +34,7 @@ export function StatusPage() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold text-gray-900 dark:text-white">{storage.percent}%</div>
+            <div className="text-3xl font-bold text-gray-900 dark:text-white">{Math.round(storage.percent)}%</div>
             <div className="text-sm text-gray-500 dark:text-gray-400">{storage.used} / {storage.size}</div>
           </div>
         </div>
@@ -42,7 +42,7 @@ export function StatusPage() {
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
           <div
             className="bg-gradient-to-r from-primary-500 to-primary-600 h-full transition-all duration-500 rounded-full"
-            style={{ width: `${storage.percent}%` }}
+            style={{ width: `${Math.round(storage.percent)}%` }}
           />
         </div>
       </Card>
