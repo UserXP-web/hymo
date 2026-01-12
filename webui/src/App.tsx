@@ -187,32 +187,32 @@ function App() {
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
         >
-            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8">
+            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8 no-scrollbar">
                 <main className="max-w-7xl mx-auto animate-fade-in">
                     <StatusPage />
                 </main>
             </div>
 
-            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8">
+            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8 no-scrollbar">
                 <main className="max-w-7xl mx-auto animate-fade-in">
                     <ConfigPage />
                 </main>
             </div>
 
             {/* Modules Page */}
-            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8">
+            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8 no-scrollbar">
                 <main className="max-w-7xl mx-auto animate-fade-in">
                     <ModulesPage />
                 </main>
             </div>
 
-            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8">
+            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8 no-scrollbar">
                 <main className="max-w-7xl mx-auto animate-fade-in">
                     <LogsPage />
                 </main>
             </div>
 
-            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8">
+            <div className="min-w-full w-full h-full overflow-y-auto px-4 py-8 no-scrollbar">
                 <main className="max-w-7xl mx-auto animate-fade-in">
                     <InfoPage />
                 </main>
