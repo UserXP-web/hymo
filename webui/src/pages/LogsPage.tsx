@@ -5,7 +5,7 @@ import { Card, Button, Select } from '@/components/ui'
 import { RefreshCw, Terminal, Copy, Search } from 'lucide-react'
 
 export function LogsPage() {
-  const { t } = useStore()
+  const { t } = useStore((state) => state)
   const [logType, setLogType] = useState<'system' | 'kernel'>('system')
   const [logs, setLogs] = useState('')
   const [loading, setLoading] = useState(false)

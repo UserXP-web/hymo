@@ -12,7 +12,7 @@ const tabs = [
 ]
 
 export function Navigation() {
-  const { activeTab, setActiveTab, t, language, setLanguage, theme, toggleTheme } = useStore()
+  const { activeTab, setActiveTab, t, language, setLanguage, theme, toggleTheme } = useStore((state) => state)
   const [isLangOpen, setIsLangOpen] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
 

@@ -4,7 +4,7 @@ import { Card, Button } from '@/components/ui'
 import { Github, BookOpen, AlertTriangle } from 'lucide-react'
 
 export function InfoPage() {
-  const { t } = useStore()
+  const { t } = useStore((state) => state)
   const [showWarning, setShowWarning] = useState(false)
   const [countdown, setCountdown] = useState(5)
 
