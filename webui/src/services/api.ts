@@ -34,6 +34,7 @@ function serializeConfig(config: Config): string {
   output += `ignore_protocol_mismatch = ${config.ignore_protocol_mismatch}\n`
   output += `enable_kernel_debug = ${config.enable_kernel_debug}\n`
   output += `enable_stealth = ${config.enable_stealth}\n`
+  output += `hymofs_enabled = ${config.hymofs_enabled}\n`
   
   if (config.partitions?.length) {
     output += `partitions = "${config.partitions.join(',')}"\n`
@@ -152,6 +153,9 @@ const realApi = {
     // Apply kernel settings
     await ksuExec!(`${PATHS.BINARY} debug ${config.enable_kernel_debug ? 'on' : 'off'}`)
     await ksuExec!(`${PATHS.BINARY} stealth ${config.enable_stealth ? 'on' : 'off'}`)
+    if (config.hymofs_available) {
+      await ksuExec!(`${PATHS.BINARY} hymofs ${config.hymofs_enabled ? 'on' : 'off'}`)
+    }
   },
 
   async scanModules(): Promise<Module[]> {

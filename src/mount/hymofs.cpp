@@ -272,6 +272,18 @@ bool HymoFS::set_stealth(bool enable) {
     return ret;
 }
 
+bool HymoFS::set_enabled(bool enable) {
+    uint64_t val = enable ? 1 : 0;
+    LOG_INFO("HymoFS: Setting enabled=" + std::string(enable ? "true" : "false"));
+    bool ret = hymo_execute_cmd(HYMO_CMD_SET_ENABLED, (void*)val) == 0;
+    if (!ret) {
+        LOG_ERROR("HymoFS: set_enabled failed: " + std::string(strerror(errno)));
+    } else {
+        LOG_INFO("HymoFS: HymoFS is now " + std::string(enable ? "enabled" : "disabled"));
+    }
+    return ret;
+}
+
 bool HymoFS::fix_mounts() {
     LOG_INFO("HymoFS: Fixing mounts (reorder mnt_id)...");
     bool ret = hymo_execute_cmd(HYMO_CMD_REORDER_MNT_ID, nullptr) == 0;

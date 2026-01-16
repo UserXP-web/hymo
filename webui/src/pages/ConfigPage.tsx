@@ -153,6 +153,14 @@ export function ConfigPage() {
               label={t.config.enableStealth}
             />
 
+            {config.hymofs_available && (
+              <Switch
+                checked={config.hymofs_enabled}
+                onChange={(checked) => updateConfig({ hymofs_enabled: checked })}
+                label={t.config.enableHymoFS || "Enable HymoFS (Protocol 11)"}
+              />
+            )}
+
             <Switch
               checked={config.enable_kernel_debug}
               onChange={(checked) => updateConfig({ enable_kernel_debug: checked })}
