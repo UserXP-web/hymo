@@ -24,7 +24,7 @@ static fs::path extract_module_root(const fs::path& partition_path) {
 
 ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
     if (!plan.hymofs_module_ids.empty()) {
-        LOG_INFO("HymoFS active.");
+        LOG_INFO("HymoFS modules handled by Fast Path controller.");
     }
 
     std::vector<fs::path> magic_queue = plan.magic_module_paths;
@@ -32,7 +32,7 @@ ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
     std::vector<std::string> final_overlay_ids = plan.overlay_module_ids;
     std::vector<std::string> fallback_ids;
 
-    // Execute OverlayFS
+    // Execute Overlay Operations
     for (const auto& op : plan.overlay_ops) {
         std::vector<std::string> lowerdir_strings;
         for (const auto& p : op.lowerdirs) {
@@ -49,7 +49,7 @@ ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
 
         if (!mount_overlay(op.target, lowerdir_strings, config.mountsource, std::nullopt,
                            std::nullopt, config.disable_umount, all_partitions)) {
-            LOG_WARN("OverlayFS failed for " + op.target + ". Falling back to Magic Mount.");
+            LOG_WARN("OverlayFS failed for " + op.target + ". Triggering fallback.");
 
             // Fallback: Add all involved modules to magic queue
             for (const auto& layer_path : op.lowerdirs) {
@@ -65,7 +65,7 @@ ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
         }
     }
 
-    // Handle fallback IDs
+    // Adjust ID lists based on fallbacks
     if (!fallback_ids.empty()) {
         final_overlay_ids.erase(std::remove_if(final_overlay_ids.begin(), final_overlay_ids.end(),
                                                [&fallback_ids](const std::string& id) {
@@ -86,6 +86,7 @@ ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
     if (!magic_queue.empty()) {
         fs::path tempdir = config.tempdir.empty() ? select_temp_dir() : config.tempdir;
 
+        // Calculate magic IDs from final queue
         for (const auto& path : magic_queue) {
             if (path.has_filename()) {
                 final_magic_ids.push_back(path.filename().string());
@@ -105,7 +106,7 @@ ExecutionResult execute_plan(const MountPlan& plan, const Config& config) {
         cleanup_temp_dir(tempdir);
     }
 
-    // Cleanup ID lists
+    // Final cleanup of ID lists
     std::sort(final_overlay_ids.begin(), final_overlay_ids.end());
     final_overlay_ids.erase(std::unique(final_overlay_ids.begin(), final_overlay_ids.end()),
                             final_overlay_ids.end());

@@ -26,7 +26,7 @@ public:
     static bool hide_path(const std::string& path);
     static bool add_merge_rule(const std::string& src, const std::string& target);
 
-    // Recursively add/remove rules from a directory
+    // Helper to recursively walk a directory and generate rules
     static bool add_rules_from_directory(const fs::path& target_base, const fs::path& module_dir);
     static bool remove_rules_from_directory(const fs::path& target_base,
                                             const fs::path& module_dir);

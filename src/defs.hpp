@@ -45,7 +45,5 @@ constexpr uint32_t KSU_IOCTL_ADD_TRY_UMOUNT = 0x40004b12;
 
 // HymoFS Devices
 constexpr const char* HYMO_MIRROR_DEV = "/dev/hymo_mirror";
-// The following device node must be created by the HymoFS kernel module
-constexpr const char* HYMO_DEVICE_PATH = "/dev/hymo_ctl";
 
 }  // namespace hymo

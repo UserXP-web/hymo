@@ -1,3 +1,4 @@
+// utils.cpp - Utility functions implementation
 #include "utils.hpp"
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -16,6 +17,7 @@
 
 namespace hymo {
 
+// Logger implementation
 Logger& Logger::getInstance() {
     static Logger instance;
     return instance;
@@ -33,6 +35,7 @@ void Logger::init(bool verbose, const fs::path& log_path) {
 }
 
 void Logger::log(const std::string& level, const std::string& message) {
+    // Skip DEBUG messages if not in verbose mode
     if (level == "DEBUG" && !verbose_) {
         return;
     }
@@ -51,6 +54,7 @@ void Logger::log(const std::string& level, const std::string& message) {
     std::cerr << log_line;
 }
 
+// File system utilities
 bool ensure_dir_exists(const fs::path& path) {
     try {
         if (!fs::exists(path)) {
@@ -160,7 +164,7 @@ bool mount_image(const fs::path& image_path, const fs::path& target, const std::
 }
 
 bool repair_image(const fs::path& image_path) {
-    LOG_INFO("Repairing ext4 image: " + image_path.string());
+    LOG_INFO("Running e2fsck on " + image_path.string());
 
     std::string cmd = "e2fsck -y -f " + image_path.string() + " >/dev/null 2>&1";
     int ret = system(cmd.c_str());
@@ -223,6 +227,7 @@ bool sync_dir(const fs::path& src, const fs::path& dst) {
     return native_cp_r(src, dst);
 }
 
+// Process utilities
 bool camouflage_process(const std::string& name) {
     if (prctl(PR_SET_NAME, name.c_str(), 0, 0, 0) == 0) {
         return true;
@@ -231,6 +236,7 @@ bool camouflage_process(const std::string& name) {
     return false;
 }
 
+// Temp directory
 fs::path select_temp_dir() {
     fs::path run_dir(RUN_DIR);
     ensure_dir_exists(run_dir);
@@ -259,6 +265,7 @@ void cleanup_temp_dir(const fs::path& temp_dir) {
     }
 }
 
+// KSU utilities
 static int ksu_fd = -1;
 static bool ksu_checked = false;
 
@@ -290,6 +297,7 @@ bool send_unmountable(const fs::path& target) {
     if (path_str.empty())
         return true;
 
+    // Dedup check
     if (sent_unmounts.find(path_str) != sent_unmounts.end()) {
         return true;
     }

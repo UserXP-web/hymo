@@ -73,18 +73,20 @@ static void print_help() {
     std::cout << "  -h, --help              Show this help\n";
 }
 
-// Segregates custom rules (Overlay/Magic) from HymoFS source tree to avoid interference
+// Helper to segregate custom rules (Overlay/Magic) from HymoFS source tree
 static void segregate_custom_rules(MountPlan& plan, const fs::path& mirror_dir) {
     fs::path staging_dir = mirror_dir / ".overlay_staging";
 
+    // Process Overlay Ops
     for (auto& op : plan.overlay_ops) {
         for (auto& layer : op.lowerdirs) {
-            // Check if the layer is within the mirror directory
+            // Check if path starts with mirror_dir
             std::string layer_str = layer.string();
             std::string mirror_str = mirror_dir.string();
 
             if (layer_str.find(mirror_str) == 0) {
-                // Move mirror-backed files to staging for OverlayFS usage
+                // It is inside mirror. Move it to staging.
+                // Construct relative path from mirror root
                 fs::path rel = fs::relative(layer, mirror_dir);
                 fs::path target = staging_dir / rel;
 
@@ -92,8 +94,10 @@ static void segregate_custom_rules(MountPlan& plan, const fs::path& mirror_dir) 
                     if (fs::exists(layer)) {
                         fs::create_directories(target.parent_path());
                         fs::rename(layer, target);
+                        // Update the layer path in the plan
                         layer = target;
-                        LOG_DEBUG("Staged custom rule: " + layer_str + " -> " + target.string());
+                        LOG_DEBUG("Segregated custom rule source: " + layer_str + " -> " +
+                                  target.string());
                     }
                 } catch (const std::exception& e) {
                     LOG_WARN("Failed to segregate custom rule source: " + layer_str + " - " +
@@ -716,22 +720,24 @@ int main(int argc, char* argv[]) {
 
                     // Apply Stealth Mode
                     if (HymoFS::set_stealth(config.enable_stealth)) {
-                        LOG_INFO("Stealth mode set: " +
+                        LOG_INFO("Stealth mode set to: " +
                                  std::string(config.enable_stealth ? "true" : "false"));
                     } else {
                         LOG_WARN("Failed to set stealth mode.");
                     }
 
-                    // Fix mount namespace if stealth is enabled
+                    // Fix mount namespace (reorder mnt_id) if stealth is enabled
+                    // This ensures that any new mounts created during reload are also
+                    // hidden/reordered
                     if (config.enable_stealth) {
                         if (HymoFS::fix_mounts()) {
-                            LOG_INFO("Mount namespace fixed (mnt_id reordered).");
+                            LOG_INFO("Mount namespace fixed (mnt_id reordered) after reload.");
                         } else {
-                            LOG_WARN("Failed to fix mount namespace.");
+                            LOG_WARN("Failed to fix mount namespace after reload.");
                         }
                     }
 
-                    // Update runtime state
+                    // 5. Update Runtime State (daemon_state.json)
                     RuntimeState state = load_runtime_state();
 
                     state.mount_point = MIRROR_DIR.string();
@@ -888,14 +894,15 @@ int main(int argc, char* argv[]) {
 
             // Apply Stealth Mode
             if (HymoFS::set_stealth(config.enable_stealth)) {
-                LOG_INFO("Stealth mode set: " +
+                LOG_INFO("Stealth mode set to: " +
                          std::string(config.enable_stealth ? "true" : "false"));
             } else {
                 LOG_WARN("Failed to set stealth mode.");
             }
 
-            // **Mirror Strategy**
-            // Sync modules to a mirror directory (tmpfs/ext4/erofs) for HymoFS injection
+            // **Mirror Strategy (Tmpfs/Ext4)**
+            // To avoid SELinux/permission issues on /data, we mirror active modules
+            // to a tmpfs or ext4 image and inject from there.
             const fs::path MIRROR_DIR = effective_mirror_path;
             fs::path img_path = fs::path(BASE_DIR) / "modules.img";
             bool mirror_success = false;
@@ -916,9 +923,10 @@ int main(int argc, char* argv[]) {
                 }
                 LOG_INFO("Mirror storage setup: " + storage.mode);
 
+                // Scan modules from source to know what to copy
                 module_list = scan_modules(config.moduledir, config);
 
-                // Filter active modules
+                // Filter modules: only copy if they have content for target partitions
                 std::vector<Module> active_modules;
                 std::vector<std::string> all_partitions = BUILTIN_PARTITIONS;
                 for (const auto& part : config.partitions)
@@ -935,13 +943,15 @@ int main(int argc, char* argv[]) {
                     if (has_content) {
                         active_modules.push_back(mod);
                     } else {
-                        LOG_DEBUG("Skipping empty module: " + mod.id);
+                        LOG_DEBUG("Skipping empty/irrelevant module for mirror: " + mod.id);
                     }
                 }
 
+                // Update module_list to only include active ones for subsequent steps
                 module_list = active_modules;
 
-                LOG_INFO("Syncing " + std::to_string(module_list.size()) + " modules to mirror...");
+                LOG_INFO("Syncing " + std::to_string(module_list.size()) +
+                         " active modules to mirror...");
 
                 bool sync_ok = true;
                 for (const auto& mod : module_list) {
@@ -954,6 +964,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (sync_ok) {
+                    // If using ext4 image, we need to fix permissions after sync
                     if (storage.mode == "ext4") {
                         finalize_storage_permissions(storage.mount_point);
                     }
@@ -988,16 +999,19 @@ int main(int argc, char* argv[]) {
             if (!mirror_success) {
                 LOG_WARN("Mirror setup failed. Falling back to Magic Mount.");
 
+                // Fallback to Magic Mount using source directory directly
                 storage.mode = "magic_only";
                 storage.mount_point = config.moduledir;
 
                 module_list = scan_modules(config.moduledir, config);
 
+                // Manually construct a Magic Mount plan
                 plan.overlay_ops.clear();
                 plan.hymofs_module_ids.clear();
                 plan.magic_module_paths.clear();
 
                 for (const auto& mod : module_list) {
+                    // Check if module has content
                     bool has_content = false;
                     std::vector<std::string> all_partitions = BUILTIN_PARTITIONS;
                     for (const auto& part : config.partitions)
@@ -1016,11 +1030,12 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
+                // Execute plan
                 exec_result = execute_plan(plan, config);
             }
 
         } else {
-            // **Standard Path**
+            // **Legacy/Overlay Path**
             if (hymofs_status == HymoFSStatus::KernelTooOld) {
                 LOG_WARN("HymoFS Protocol Mismatch! Kernel is too old.");
                 warning_msg = "⚠️Kernel version is lower than module version. Please "
@@ -1033,23 +1048,29 @@ int main(int argc, char* argv[]) {
 
             LOG_INFO("Mode: Standard Overlay/Magic (Copy)");
 
+            // **Step 1: Setup Storage**
             fs::path mnt_base(FALLBACK_CONTENT_DIR);
             fs::path img_path = fs::path(BASE_DIR) / "modules.img";
 
-            storage = setup_storage(mnt_base, img_path, config.force_ext4, config.prefer_erofs);
+            storage = setup_storage(mnt_base, img_path, config.force_ext4);
 
+            // **Step 2: Scan Modules**
             module_list = scan_modules(config.moduledir, config);
             LOG_INFO("Scanned " + std::to_string(module_list.size()) + " active modules.");
 
+            // **Step 3: Sync Content**
             perform_sync(module_list, storage.mount_point, config);
 
+            // **FIX 1: Fix permissions after sync**
             if (storage.mode == "ext4") {
                 finalize_storage_permissions(storage.mount_point);
             }
 
+            // **Step 4: Generate Plan**
             LOG_INFO("Generating mount plan...");
             plan = generate_plan(config, module_list, storage.mount_point);
 
+            // **Step 5: Execute Plan**
             exec_result = execute_plan(plan, config);
         }
 
@@ -1058,19 +1079,19 @@ int main(int argc, char* argv[]) {
                  " Magic modules, " + std::to_string(plan.hymofs_module_ids.size()) +
                  " HymoFS modules");
 
-        // Clear Ext4 sysfs traces via KSU
+        // **Step 6: KSU Nuke (Stealth)**
         bool nuke_active = false;
         if (storage.mode == "ext4" && config.enable_nuke) {
-            LOG_INFO("Nuking Ext4 sysfs traces via KernelSU...");
+            LOG_INFO("Attempting to deploy Paw Pad (Stealth) via KernelSU...");
             if (ksu_nuke_sysfs(storage.mount_point.string())) {
-                LOG_INFO("Ext4 sysfs traces nuked.");
+                LOG_INFO("Success: Paw Pad active. Ext4 sysfs traces nuked.");
                 nuke_active = true;
             } else {
-                LOG_WARN("Failed to nuke sysfs traces.");
+                LOG_WARN("Paw Pad failed (KSU ioctl error)");
             }
         }
 
-        // Save runtime state
+        // **Step 8: Save Runtime State**
         RuntimeState state;
         state.storage_mode = storage.mode;
         state.mount_point = storage.mount_point.string();
@@ -1087,7 +1108,9 @@ int main(int argc, char* argv[]) {
 
             for (const auto& part : all_parts) {
                 bool active = false;
+                // Check if any HymoFS module has this partition
                 for (const auto& mod_id : plan.hymofs_module_ids) {
+                    // Find module by ID (inefficient but works)
                     for (const auto& m : module_list) {
                         if (m.id == mod_id) {
                             if (fs::exists(m.source_path / part)) {
@@ -1104,10 +1127,12 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Track OverlayFS targets
+        // Also add OverlayFS targets
         for (const auto& op : plan.overlay_ops) {
+            // op.target is like "/system"
             fs::path p(op.target);
             std::string name = p.filename().string();
+            // Avoid duplicates
             bool exists = false;
             for (const auto& existing : state.active_mounts) {
                 if (existing == name) {
@@ -1127,6 +1152,7 @@ int main(int argc, char* argv[]) {
 
             for (const auto& part : all_parts) {
                 bool active = false;
+                // Check if any Magic module has this partition
                 for (const auto& mod_id : plan.magic_module_ids) {
                     for (const auto& m : module_list) {
                         if (m.id == mod_id) {
@@ -1140,6 +1166,7 @@ int main(int argc, char* argv[]) {
                         break;
                 }
 
+                // Avoid duplicates
                 bool exists = false;
                 for (const auto& existing : state.active_mounts) {
                     if (existing == part) {
@@ -1166,7 +1193,7 @@ int main(int argc, char* argv[]) {
             LOG_ERROR("Failed to save runtime state");
         }
 
-        // Update module.prop description
+        // Update module description
         update_module_description(true, storage.mode, nuke_active,
                                   exec_result.overlay_module_ids.size(),
                                   exec_result.magic_module_ids.size(),
@@ -1175,7 +1202,9 @@ int main(int argc, char* argv[]) {
         LOG_INFO("Hymo Completed.");
 
     } catch (const std::exception& e) {
+        std::cerr << "Fatal Error: " << e.what() << "\n";
         LOG_ERROR("Fatal Error: " + std::string(e.what()));
+        // Update with failure emoji
         update_module_description(false, "error", false, 0, 0, 0, "", false);
         return 1;
     }

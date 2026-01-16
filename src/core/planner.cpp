@@ -54,7 +54,7 @@ static bool has_meaningful_content(const fs::path& base,
     return false;
 }
 
-// Helper: Resolve directory symlinks but preserve filename logic
+// Helper: Resolve symlinks in directory symlinks but preserve filename logic
 static std::string resolve_path_for_hymofs(const std::string& path_str) {
     try {
         fs::path p(path_str);
@@ -67,15 +67,18 @@ static std::string resolve_path_for_hymofs(const std::string& path_str) {
         fs::path curr = parent;
         std::vector<fs::path> suffix;
 
+        // Walk up until we find an existing path
         while (!curr.empty() && curr != "/" && !fs::exists(curr)) {
             suffix.push_back(curr.filename());
             curr = curr.parent_path();
         }
 
+        // Resolve the existing base
         if (fs::exists(curr)) {
             curr = fs::canonical(curr);
         }
 
+        // Re-append the non-existing suffix
         for (auto it = suffix.rbegin(); it != suffix.rend(); ++it) {
             curr /= *it;
         }
@@ -231,15 +234,6 @@ MountPlan generate_plan(const Config& config, const std::vector<Module>& modules
             if (default_mode == "magic" && !magic_active && module.rules.empty()) {
                 // Should not happen as we are in has_rules block
             } else if (default_mode == "magic" && !magic_active) {
-                // If default is magic but no specific magic rules found (and we have
-                // other rules), we might still want to magic mount the root? But if we
-                // have rules, we probably want specific behavior. Let's assume if
-                // default is magic, we add the root unless explicitly excluded? For
-                // now, let's stick to explicit rules or default behavior if no rules
-                // match. If default is magic, and we have a rule for
-                // /system/bin=hymofs. We probably want everything else to be magic. But
-                // magic mount is coarse. Let's just add the root to magic_paths if
-                // default is magic.
                 magic_paths.insert(content_path);
                 magic_ids.insert(module.id);
             }
@@ -308,7 +302,7 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
     std::vector<AddRule> merge_rules;
     std::vector<std::string> hide_rules;
 
-    // Process explicit hide rules
+    // Process explicit hide rules from module configuration
     for (const auto& module : modules) {
         bool is_hymofs = false;
         for (const auto& id : plan.hymofs_module_ids) {
@@ -327,7 +321,8 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
         }
     }
 
-    // Iterate in reverse (Last Write Wins)
+    // Iterate in reverse (Lowest Priority -> Highest Priority)
+    // Assuming "Last Write Wins" in kernel module
     for (auto it = modules.rbegin(); it != modules.rend(); ++it) {
         const auto& module = *it;
 
@@ -343,10 +338,11 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
 
         fs::path mod_path = storage_root / module.id;
 
-        // Determine default mode
+        // Determine default mode for this module
         std::string default_mode = module.mode;
         if (default_mode == "auto")
-            default_mode = "hymofs";
+            default_mode = "hymofs";  // If it's in hymofs_module_ids, default is
+                                      // effectively hymofs unless overridden
 
         for (const auto& part : target_partitions) {
             fs::path part_root = mod_path / part;
@@ -376,12 +372,14 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
                         }
                     }
 
+                    // If mode is NOT hymofs, skip this file
                     if (mode != "hymofs" && mode != "auto") {
                         continue;
                     }
 
                     // Check if covered by overlay
                     bool covered = false;
+                    // Use reference to allow modification of lowerdirs
                     for (auto& op : plan.overlay_ops) {
                         std::string p_str = virtual_path.string();
                         std::string t_str = op.target;
@@ -393,6 +391,7 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
 
                         if (match) {
                             covered = true;
+                            // Add layer if not present
                             if (t_str.size() > 1) {
                                 fs::path layer_path = mod_path / t_str.substr(1);
                                 bool exists = false;
@@ -421,16 +420,17 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
                             fs::is_directory(final_virtual_path)) {
                             merge_rules.push_back(
                                 {final_virtual_path, entry.path().string(), DT_DIR});
-                            dir_it.disable_recursion_pending();
+                            dir_it.disable_recursion_pending();  // Kernel handles children via
+                                                                 // merge
                             continue;
                         }
                     }
 
                     if (entry.is_regular_file() || entry.is_symlink()) {
-                        // Safety: Skip symlink replacement for directory
+                        // Safety Check: Do not replace existing directories with symlinks
                         if (entry.is_symlink()) {
                             if (fs::exists(virtual_path) && fs::is_directory(virtual_path)) {
-                                LOG_WARN("Safety: Skip symlink replacement for directory: " +
+                                LOG_WARN("Safety: Skipping symlink replacement for directory: " +
                                          virtual_path.string());
                                 continue;
                             }
@@ -471,7 +471,7 @@ void update_hymofs_mappings(const Config& config, const std::vector<Module>& mod
         }
     }
 
-    // Apply rules
+    // Apply rules: Add files first (auto-injects parents), then hide
     for (const auto& rule : add_rules) {
         HymoFS::add_rule(rule.src, rule.target, rule.type);
     }
