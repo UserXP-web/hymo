@@ -154,5 +154,4 @@ jobs:
           MESSAGE_THREAD_ID: ${{secrets.MESSAGE_THREAD_ID}}
           BOT_TOKEN: ${{secrets.TELEGRAM_BOT_TOKEN}}
           MODULE_VER: ${{ github.ref_name }}
-          UPDATE: |
-            $(cat /tmp/changelog.md | sed '1d' | sed '/^$/d') 
+          UPDATE: ${{ github.event.head_commit.message }} 

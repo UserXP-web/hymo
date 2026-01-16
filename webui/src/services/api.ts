@@ -252,24 +252,23 @@ const realApi = {
       await initKernelSU()
       if (!ksuExec) return []
       
-      // Find all 2nd level directories in module dir
-      const cmd = `find ${moduledir} -mindepth 2 -maxdepth 2 -type d`
+      // Use hymod to scan for actual partition candidates
+      // This checks module directories against system mountpoints
+      const cmd = `${PATHS.BINARY} sync-partitions 2>&1`
       try {
         const { errno, stdout } = await ksuExec!(cmd)
-        if (errno === 0 && stdout) {
-            const paths = stdout.split('\n').filter(Boolean)
-            const partitions = new Set<string>()
-            for (const p of paths) {
-                const parts = p.split('/')
-                const name = parts[parts.length - 1]
-                // Filter out common non-partition folders if any?
-                // For now, accept everything that's not hidden
-                if (!name.startsWith('.')) {
-                    partitions.add(name)
-                }
-            }
-            return Array.from(partitions)
+        const partitions = new Set<string>()
+        
+        // Parse output for "Added partition: <name>" or "No new partitions"
+        const lines = stdout.split('\n')
+        for (const line of lines) {
+          const match = line.match(/Added partition:\s*(\S+)/)
+          if (match) {
+            partitions.add(match[1])
+          }
         }
+        
+        return Array.from(partitions)
       } catch(e) {
           console.error("Failed to scan partitions", e)
       }
