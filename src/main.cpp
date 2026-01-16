@@ -246,6 +246,8 @@ int main(int argc, char* argv[]) {
                           << (config.enable_kernel_debug ? "true" : "false") << ",\n";
                 std::cout << "  \"enable_stealth\": " << (config.enable_stealth ? "true" : "false")
                           << ",\n";
+                std::cout << "  \"hymofs_enabled\": " << (config.hymofs_enabled ? "true" : "false")
+                          << ",\n";
                 std::cout << "  \"hymofs_available\": "
                           << (HymoFS::is_available() ? "true" : "false") << ",\n";
                 std::cout << "  \"hymofs_status\": " << (int)HymoFS::check_status() << ",\n";
