@@ -274,7 +274,6 @@ const realApi = {
       }
       return []
   },
-  },
 
   async readLogs(logPath: string, lines = 1000): Promise<string> {
     await initKernelSU()
