@@ -29,6 +29,7 @@ function serializeConfig(config: Config): string {
   
   output += `verbose = ${config.verbose}\n`
   output += `force_ext4 = ${config.force_ext4}\n`
+  output += `prefer_erofs = ${config.prefer_erofs}\n`
   output += `disable_umount = ${config.disable_umount}\n`
   output += `enable_nuke = ${config.enable_nuke}\n`
   output += `ignore_protocol_mismatch = ${config.ignore_protocol_mismatch}\n`
