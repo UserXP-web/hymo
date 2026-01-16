@@ -238,6 +238,8 @@ int main(int argc, char* argv[]) {
                 std::cout << "  \"verbose\": " << (config.verbose ? "true" : "false") << ",\n";
                 std::cout << "  \"force_ext4\": " << (config.force_ext4 ? "true" : "false")
                           << ",\n";
+                std::cout << "  \"prefer_erofs\": " << (config.prefer_erofs ? "true" : "false")
+                          << ",\n";
                 std::cout << "  \"disable_umount\": " << (config.disable_umount ? "true" : "false")
                           << ",\n";
                 std::cout << "  \"enable_nuke\": " << (config.enable_nuke ? "true" : "false")
