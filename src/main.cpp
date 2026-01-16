@@ -45,6 +45,8 @@ static void print_help() {
     std::cout << "  version         Show HymoFS protocol and config version\n";
     std::cout << "  list            List all active HymoFS rules\n";
     std::cout << "  debug <on|off>  Enable/Disable kernel debug logging\n";
+    std::cout << "  stealth <on|off> Enable/Disable stealth mode\n";
+    std::cout << "  hymofs <on|off> Enable/Disable HymoFS (Protocol 11+)\n";
     std::cout << "  raw <cmd> ...   Execute raw HymoFS command "
                  "(add/hide/delete/merge)\n";
     std::cout << "  add <mod_id>    Add module rules to HymoFS\n";
@@ -463,6 +465,48 @@ int main(int argc, char* argv[]) {
                                  std::string(enable ? "enabled" : "disabled"));
                     } else {
                         std::cerr << "Failed to set kernel debug logging.\n";
+                        return 1;
+                    }
+                } else {
+                    std::cerr << "HymoFS not available.\n";
+                    return 1;
+                }
+                return 0;
+            } else if (cli.command == "stealth") {
+                if (cli.args.empty()) {
+                    std::cerr << "Usage: hymod stealth <on|off>\n";
+                    return 1;
+                }
+                std::string state = cli.args[0];
+                bool enable = (state == "on" || state == "1" || state == "true");
+
+                if (HymoFS::is_available()) {
+                    if (HymoFS::set_stealth(enable)) {
+                        std::cout << "Stealth mode " << (enable ? "enabled" : "disabled") << ".\n";
+                        LOG_INFO("Stealth mode " + std::string(enable ? "enabled" : "disabled"));
+                    } else {
+                        std::cerr << "Failed to set stealth mode.\n";
+                        return 1;
+                    }
+                } else {
+                    std::cerr << "HymoFS not available.\n";
+                    return 1;
+                }
+                return 0;
+            } else if (cli.command == "hymofs") {
+                if (cli.args.empty()) {
+                    std::cerr << "Usage: hymod hymofs <on|off>\n";
+                    return 1;
+                }
+                std::string state = cli.args[0];
+                bool enable = (state == "on" || state == "1" || state == "true");
+
+                if (HymoFS::is_available()) {
+                    if (HymoFS::set_enabled(enable)) {
+                        std::cout << "HymoFS " << (enable ? "enabled" : "disabled") << ".\n";
+                        LOG_INFO("HymoFS " + std::string(enable ? "enabled" : "disabled"));
+                    } else {
+                        std::cerr << "Failed to set HymoFS enable state.\n";
                         return 1;
                     }
                 } else {
