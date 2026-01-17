@@ -153,6 +153,7 @@ bool mount_image(const fs::path& image_path, const fs::path& target, const std::
     // Use mount command (let it handle loop setup)
     std::string cmd = "mount -t " + fs_type + " -o " + options + " " + image_path.string() + " " +
                       target.string();
+    LOG_INFO("Mount cmd: " + cmd.c_str());
     int ret = system(cmd.c_str());
 
     if (ret != 0) {
