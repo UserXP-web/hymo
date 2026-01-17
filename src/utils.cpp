@@ -156,10 +156,17 @@ bool mount_image(const fs::path& image_path, const fs::path& target, const std::
     LOG_INFO("Mount cmd: " + cmd);
     int ret = system(cmd.c_str());
 
-    if (ret != 0) {
-        LOG_ERROR("Failed to mount: " + image_path.string() + " (" + fs_type + ")");
-        return false;
+    if (WIFEXITED(ret)) {
+        int code = WEXITSTATUS(ret);
+        if (code != 0) {
+            LOG_ERROR("Failed to mount: " + image_path.string() + " (" + fs_type + "): " + std::to_string(code));
+            return false;
+        }
     }
+    //if (ret != 0) {
+    //    LOG_ERROR("Failed to mount: " + image_path.string() + " (" + fs_type + ")");
+    //    return false;
+    //}
 
     return true;
 }
