@@ -196,7 +196,7 @@ StorageHandle setup_storage(const fs::path& mnt_dir, const fs::path& image_path,
     } else if (prefer_erofs) {
         // Try: EROFS -> Ext4
         fs::path erofs_image = image_path.parent_path() / "modules.erofs";
-        fs::path modules_dir = image_path.parent_path() / "modules";
+        fs::path modules_dir = image_path.parent_path() / ""; // "modules";
 
         if (try_setup_erofs(mnt_dir, modules_dir, erofs_image)) {
             mode = "erofs";
