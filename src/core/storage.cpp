@@ -143,7 +143,7 @@ static bool try_setup_erofs(const fs::path& target, const fs::path& modules_dir,
         return false;
     }
 
-    if (!mount_image(image_path, target, "erofs", "loop,ro,noatime")) {
+    if (!mount_image(image_path, target, "erofs", "loop,ro,nodev,noatime")) {
         LOG_WARN("Failed to mount EROFS image.");
         return false;
     }
