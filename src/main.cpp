@@ -1114,7 +1114,7 @@ int main(int argc, char* argv[]) {
             fs::path mnt_base(FALLBACK_CONTENT_DIR);
             fs::path img_path = fs::path(BASE_DIR) / "modules.img";
 
-            storage = setup_storage(mnt_base, img_path, config.force_ext4);
+            storage = setup_storage(mnt_base, img_path, config.force_ext4, config.prefer_erofs);
 
             // **Step 2: Scan Modules**
             module_list = scan_modules(config.moduledir, config);
