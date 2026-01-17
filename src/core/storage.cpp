@@ -167,7 +167,11 @@ static std::string setup_ext4_image(const fs::path& target, const fs::path& imag
 
         if (repair_image(image_path)) {
             if (!mount_image(image_path, target, "ext4", "loop,rw,noatime")) {
-                throw std::runtime_error("Failed to mount modules.img after repair");
+                if (mount_image(image_path, target, "ext4", "loop,ro,noatime")) {
+                    LOG_WARN("Mount as ReadOnly");
+                } else {
+                    throw std::runtime_error("Failed to mount modules.img after repair");
+                }                
             }
         } else {
             throw std::runtime_error("Failed to repair modules.img");
