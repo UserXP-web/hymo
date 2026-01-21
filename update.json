@@ -1,6 +1,6 @@
 {
   "version": "v2.0.0",
-  "versionCode": 16,
-  "zipUrl": "https://gitlab.com/Anatdx/hymo/releases/download/v2.0.0/hymo-v2.0.0.zip",
-  "changelog": "https://gitlab.com/Anatdx/hymo/-/raw/main/build.sh?ref_type=heads"
+  "versionCode": 2,
+  "zipUrl": "https://github.com/Anatdx/meta-hymo/releases/download/v2.0.0/hymo-v2.0.0.zip",
+  "changelog": "https://raw.githubusercontent.com/Anatdx/meta-hymo/main/changelog.md"
 }
