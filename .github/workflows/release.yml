@@ -143,7 +143,7 @@ jobs:
           REPO="${{ github.repository }}"
           TAG="${{ github.ref_name }}"
           DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$ZIP_FILE"
-          CHANGELOG_URL="https://raw.githubusercontent.com/$REPO/master/changelog.md"
+          CHANGELOG_URL="https://raw.githubusercontent.com/$REPO/main/changelog.md"
           
           echo "Final Version: $VERSION"
           echo "Final Code: $VERSION_CODE"
@@ -184,14 +184,14 @@ jobs:
             build/out/*.zip.asc
           body_path: /tmp/changelog.md
 
-      - name: Push Update Info to Master
+      - name: Push Update Info to Main
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git reset --hard
           
-          git fetch origin master
-          git checkout master
+          git fetch origin main
+          git checkout main
           
           mv /tmp/update.json update.json
           mv /tmp/changelog.md changelog.md
@@ -203,7 +203,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "[skip ci] Update KernelSU json, changelog$MSG_SUFFIX for ${{ github.ref_name }}"
-            git push origin master
+            git push origin main
           fi
 
       - name: "📤 Upload to telegram | 上传至Telegram群组"
