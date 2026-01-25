@@ -2,11 +2,15 @@ name: Build Hymo
 
 on:
   push:
-    tags-ignore:
-      - "v*.*.*"
+    branches:
+      - main
+      - dev
     paths-ignore:
       - '**.md'
       - '.gitignore'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
