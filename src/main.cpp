@@ -231,7 +231,8 @@ int main(int argc, char* argv[]) {
         Logger::getInstance().init(cli.verbose, cli.verbose, DAEMON_LOG_FILE);
 
         if (cli.command.empty()) {
-            cli.command = "mount";  // Default to mount if no command specified
+            print_help();
+            return 0;
         }
 
         // Map command string to enum for switch statement
@@ -1253,19 +1254,13 @@ int main(int argc, char* argv[]) {
             }
 
             // Apply Stealth Mode
-            if (HymoFS::set_stealth(config.enable_stealth)) {
-                LOG_INFO("Stealth mode set to: " +
-                         std::string(config.enable_stealth ? "true" : "false"));
-            } else {
-                LOG_WARN("Failed to set stealth mode.");
-            }
-
-            // Apply HymoFS Enable/Disable
-            if (HymoFS::set_enabled(config.hymofs_enabled)) {
-                LOG_INFO("HymoFS enabled set to: " +
-                         std::string(config.hymofs_enabled ? "true" : "false"));
-            } else {
-                LOG_WARN("Failed to set HymoFS enabled state.");
+            if (config.enable_stealth) {
+                if (HymoFS::set_stealth(config.enable_stealth)) {
+                    LOG_INFO("Stealth mode set to: " +
+                             std::string(config.enable_stealth ? "true" : "false"));
+                } else {
+                    LOG_WARN("Failed to set stealth mode.");
+                }
             }
 
             // Apply Uname Spoofing if configured
@@ -1643,6 +1638,16 @@ int main(int argc, char* argv[]) {
                                   exec_result.overlay_module_ids.size(),
                                   exec_result.magic_module_ids.size(),
                                   plan.hymofs_module_ids.size(), warning_msg, hymofs_active);
+
+        // Apply HymoFS Enable/Disable at the very end to avoid race conditions/crashes during setup
+        if (can_use_hymofs) {
+            if (HymoFS::set_enabled(config.hymofs_enabled)) {
+                LOG_INFO("HymoFS enabled set to: " +
+                         std::string(config.hymofs_enabled ? "true" : "false"));
+            } else {
+                LOG_WARN("Failed to set HymoFS enabled state.");
+            }
+        }
 
         LOG_INFO("Hymo Completed.");
     } catch (const std::exception& e) {
