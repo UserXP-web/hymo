@@ -6,7 +6,7 @@
 
 KernelSU 的 C++ 模块管理器，支持 HymoFS、OverlayFS 和 Magic Mount。
 
-**[ 🇺🇸/🇬🇧 English ](../README.md)**
+**[🇺🇸/🇬🇧 English](../README.md)**
 
 ---
 
@@ -49,6 +49,10 @@ curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -
 
 自动检测内核版本（6.1/6.6/6.12）并应用补丁。
 
+## HymoFS KPM
+
+正在开发中……
+
 ---
 
 ## 命令行
@@ -61,10 +65,29 @@ hymod hymofs <on|off>               # 开关 HymoFS
 hymod stealth <on|off>              # 开关隐身模式
 ```
 
-配置文件：`/data/adb/hymo/config.toml`
+配置文件：`/data/adb/hymo/config.json`
 
 ---
 
 ## 许可证
 
 Apache License 2.0
+
+## 感谢
+
+本项目参考/使用了以下开源项目与工具（排名不分先后）：
+
+- [KernelSU](https://kernelsu.org)
+- [Magisk](https://github.com/topjohnwu/Magisk)
+- [susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu)
+- [KernelPatch](https://github.com/bmax121/KernelPatch)
+- [meta-hybrid_mount](https://github.com/Hybrid-Mount/meta-hybrid_mount)
+- [meta-magic_mount](https://codeberg.org/ovo/meta-magic_mount)
+- [meta-magic_mount_rs](https://github.com/Tools-cx-app/meta-magic_mount/)
+- [mountify](https://github.com/backslashxx/mountify)
+- [meta-overlayfs](https://github.com/KernelSU-Modules-Repo/meta-overlayfs)
+- [React](https://react.dev)
+- [Vite](https://vitejs.dev)
+- [Tailwind CSS](https://tailwindcss.com)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [Lucide Icons](https://lucide.dev)

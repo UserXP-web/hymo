@@ -6,7 +6,7 @@
 
 A C++ module manager for KernelSU with support for HymoFS, OverlayFS and Magic Mount.
 
-**[ 🇨🇳 中文 ](docs/README_ZH.md)**
+**[🇨🇳 中文](docs/README_ZH.md)**
 
 ---
 
@@ -49,6 +49,10 @@ curl -LSs https://raw.githubusercontent.com/Anatdx/HymoFS/main/setup.sh | bash -
 
 Detects kernel version (6.1/6.6/6.12) and applies patches automatically.
 
+## HymoFS KPM
+
+Developing...
+
 ---
 
 ## CLI Usage
@@ -61,10 +65,29 @@ hymod hymofs <on|off>               # Toggle HymoFS
 hymod stealth <on|off>              # Toggle stealth mode
 ```
 
-Config file: `/data/adb/hymo/config.toml`
+Config file: `/data/adb/hymo/config.json`
 
 ---
 
 ## License
 
 Apache License 2.0
+
+## Acknowledgements
+
+This project references/uses the following open-source projects and tools (in no particular order):
+
+- [KernelSU](https://kernelsu.org)
+- [Magisk](https://github.com/topjohnwu/Magisk)
+- [susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu)
+- [KernelPatch](https://github.com/bmax121/KernelPatch)
+- [meta-hybrid_mount](https://github.com/Hybrid-Mount/meta-hybrid_mount)
+- [meta-magic_mount](https://codeberg.org/ovo/meta-magic_mount)
+- [meta-magic_mount_rs](https://github.com/Tools-cx-app/meta-magic_mount/)
+- [mountify](https://github.com/backslashxx/mountify)
+- [meta-overlayfs](https://github.com/KernelSU-Modules-Repo/meta-overlayfs)
+- [React](https://react.dev)
+- [Vite](https://vitejs.dev)
+- [Tailwind CSS](https://tailwindcss.com)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [Lucide Icons](https://lucide.dev)
