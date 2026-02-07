@@ -24,7 +24,7 @@ const shouldUseMock = isDev
 
 const mockApi = {
   async loadConfig(): Promise<Config> {
-    return { ...DEFAULT_CONFIG, partitions: ['system', 'vendor'] }
+    return { ...DEFAULT_CONFIG, partitions: ['system', 'vendor'], hymofs_available: true }
   },
 
   async saveConfig(_config: Config): Promise<void> {
@@ -119,12 +119,15 @@ const mockApi = {
     ]
   },
 
-  async getAllHideRules(): Promise<Array<{ path: string; isUserDefined: boolean }>> {
+  async getAllRules(): Promise<Array<{ type: string; path: string; target?: string; source?: string; isUserDefined: boolean }>> {
     return [
-      { path: '/data/adb/magisk', isUserDefined: true },
-      { path: '/data/local/tmp/test_file', isUserDefined: true },
-      { path: '/system/app/EdXposed', isUserDefined: false },
-      { path: '/data/adb/modules/test/.hidden', isUserDefined: false },
+      { type: 'SPOOF', path: 'uname', target: '5.10.0', isUserDefined: false },
+      { type: 'SPOOF', path: 'uname', target: '#1 SMP', isUserDefined: false },
+      { type: 'HIDE', path: '/data/adb/magisk', isUserDefined: true },
+      { type: 'HIDE', path: '/data/local/tmp/test_file', isUserDefined: true },
+      { type: 'HIDE', path: '/system/app/EdXposed', isUserDefined: false },
+      { type: 'HIDE', path: '/data/adb/modules/test/.hidden', isUserDefined: false },
+      { type: 'MERGE', path: '/system/app', source: '/data/adb/modules/foo/system/app', isUserDefined: false },
     ]
   },
 
@@ -520,7 +523,7 @@ const realApi = {
     return []
   },
 
-  async getAllHideRules(): Promise<Array<{ path: string; isUserDefined: boolean }>> {
+  async getAllRules(): Promise<Array<{ type: string; path: string; target?: string; source?: string; isUserDefined: boolean }>> {
     await initKernelSU()
     if (!ksuExec) return []
     
@@ -531,7 +534,7 @@ const realApi = {
       ])
       
       const userSet = new Set(userRules)
-      const rules: Array<{ path: string; isUserDefined: boolean }> = []
+      const rules: Array<{ type: string; path: string; target?: string; source?: string; isUserDefined: boolean }> = []
       
       if (allOutput.errno === 0 && allOutput.stdout) {
         let parsed = false
@@ -540,12 +543,15 @@ const realApi = {
           if (Array.isArray(data)) {
             parsed = true
             data.forEach((rule: any) => {
-              if (rule.type === 'HIDE' && rule.path) {
-                rules.push({
-                  path: rule.path,
-                  isUserDefined: userSet.has(rule.path)
-                })
-              }
+              if (rule.type === 'INJECT') return
+              const path = rule.path ?? rule.target ?? ''
+              rules.push({
+                type: rule.type || 'UNKNOWN',
+                path,
+                target: rule.target,
+                source: rule.source,
+                isUserDefined: rule.type === 'HIDE' && path && userSet.has(path)
+              })
             })
           }
         } catch (e) {
@@ -553,16 +559,40 @@ const realApi = {
         }
 
         if (!parsed) {
-          // Parse "hide /path/to/file" lines
+          // Parse legacy format (line-based)
           const lines = allOutput.stdout.split('\n')
           for (const line of lines) {
-            if (line.startsWith('hide ')) {
-              const path = line.substring(5).trim()
+            const trimmed = line.trim()
+            if (!trimmed) continue
+
+            if (trimmed.startsWith('hide ')) {
+              const path = trimmed.substring(5).trim()
               if (path) {
                 rules.push({
+                  type: 'HIDE',
                   path,
                   isUserDefined: userSet.has(path)
                 })
+              }
+            } else {
+              const parts = trimmed.split(/\s+/)
+              if (parts.length >= 2) {
+                const type = parts[0].toUpperCase()
+                if (type === 'INJECT') continue
+                if (type === 'MERGE' || type === 'ADD') {
+                  rules.push({
+                    type,
+                    path: parts[1] ?? '',
+                    source: parts[2],
+                    isUserDefined: false
+                  })
+                } else {
+                  rules.push({
+                    type,
+                    path: parts.slice(1).join(' '),
+                    isUserDefined: false
+                  })
+                }
               }
             }
           }
@@ -571,7 +601,7 @@ const realApi = {
       
       return rules
     } catch (e) {
-      console.error('Failed to get all hide rules:', e)
+      console.error('Failed to get all rules:', e)
       return []
     }
   },

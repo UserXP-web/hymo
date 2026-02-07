@@ -12,7 +12,7 @@ interface Toast {
 }
 
 interface AppState {
-  activeTab: 'status' | 'config' | 'modules' | 'hide' | 'logs' | 'info'
+  activeTab: 'status' | 'config' | 'modules' | 'hymofs' | 'logs' | 'info'
   setActiveTab: (tab: AppState['activeTab']) => void
   
   language: Language

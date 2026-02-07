@@ -5,7 +5,7 @@ import { Card, Button, Input, Switch, RadioCards } from '@/components/ui'
 import { Plus, X, Radar } from 'lucide-react'
 
 export function ConfigPage() {
-  const { t, config, showAdvanced, setShowAdvanced, updateConfig, saveConfig, useSystemFont, setUseSystemFont, systemInfo } = useStore((state) => state)
+  const { t, config, showAdvanced, setShowAdvanced, updateConfig, saveConfig, useSystemFont, setUseSystemFont } = useStore((state) => state)
   const [newPartition, setNewPartition] = useState('')
   const [scanning, setScanning] = useState(false)
   
@@ -166,50 +166,6 @@ export function ConfigPage() {
 
       <Card>
         <div className="flex justify-between items-center mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t.config.unameSpoof}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.config.unameSpoofDesc}</p>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => updateConfig({ 
-                uname_release: systemInfo.unameRelease || '', 
-                uname_version: systemInfo.unameVersion || '' 
-              })}
-              size="sm"
-              variant="secondary"
-            >
-              {t.config.useSystemValue || '使用系统值'}
-            </Button>
-            <Button 
-              onClick={() => updateConfig({ uname_release: '', uname_version: '' })}
-              size="sm"
-              variant="secondary"
-            >
-              {t.common.clear || '清空'}
-            </Button>
-          </div>
-        </div>
-        
-        <div className="space-y-4">
-          <Input
-            label={t.config.unameRelease}
-            value={config.uname_release}
-            onChange={(e) => updateConfig({ uname_release: e.target.value })}
-            placeholder={systemInfo.unameRelease || "5.15.0-generic"}
-          />
-
-          <Input
-            label={t.config.unameVersion}
-            value={config.uname_version}
-            onChange={(e) => updateConfig({ uname_version: e.target.value })}
-            placeholder={systemInfo.unameVersion || "#1 SMP PREEMPT ..."}
-          />
-        </div>
-      </Card>
-
-      <Card>
-        <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t.config.partitions}</h3>
             <Button onClick={handleScanPartitions} disabled={scanning} size="sm" variant="secondary">
                 <Radar size={16} className={scanning ? 'animate-spin mr-2' : 'mr-2'} />
@@ -294,14 +250,6 @@ export function ConfigPage() {
               onChange={(checked) => updateConfig({ enable_stealth: checked })}
               label={t.config.enableStealth}
             />
-
-            {config.hymofs_available && (
-              <Switch
-                checked={config.hymofs_enabled}
-                onChange={(checked) => updateConfig({ hymofs_enabled: checked })}
-                label={t.config.enableHymoFS || "Enable HymoFS"}
-              />
-            )}
 
             <Switch
               checked={config.enable_kernel_debug}

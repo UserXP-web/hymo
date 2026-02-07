@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/store'
-import { Card, Button, Input } from '@/components/ui'
-import { Plus, Trash2, Eye, EyeOff, AlertCircle, CheckCircle, FolderOpen, FileText } from 'lucide-react'
+import { Card, Button, Input, Switch } from '@/components/ui'
+import { Plus, Trash2, Eye, Wrench, AlertCircle, CheckCircle, FolderOpen, FileText } from 'lucide-react'
 import { api } from '@/services/api'
 
-interface HideRule {
+interface HymoFSRule {
+  type: string
   path: string
+  target?: string
+  source?: string
   isUserDefined: boolean
 }
 
@@ -27,14 +30,15 @@ const PATH_SUGGESTIONS = [
   '/product/app/',
 ]
 
-export function HideRulesPage() {
-  const { showToast, t } = useStore()
+export function HymoFSPage() {
+  const { showToast, t, config, updateConfig, systemInfo } = useStore()
   const [userRules, setUserRules] = useState<string[]>([])
-  const [allRules, setAllRules] = useState<HideRule[]>([])
+  const [allRules, setAllRules] = useState<HymoFSRule[]>([])
   const [newPath, setNewPath] = useState('')
   const [loading, setLoading] = useState(true)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
+  const pathScrollTouchRef = useRef<{ x: number; y: number; locked: 'h' | 'v' | null }>({ x: 0, y: 0, locked: null })
 
   useEffect(() => {
     loadRules()
@@ -57,7 +61,7 @@ export function HideRulesPage() {
       setLoading(true)
       const [user, all] = await Promise.all([
         api.getUserHideRules(),
-        api.getAllHideRules()
+        api.getAllRules()
       ])
       setUserRules(user)
       setAllRules(all)
@@ -109,7 +113,6 @@ export function HideRulesPage() {
   }
 
   const userRuleCount = userRules.length
-  const moduleRuleCount = allRules.filter(r => !r.isUserDefined).length
   const totalRuleCount = allRules.length
 
   return (
@@ -117,17 +120,71 @@ export function HideRulesPage() {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gradient">{t.hideRules.title}</h1>
+            <h1 className="text-3xl font-bold text-gradient">{t.hymofs.title || 'HymoFS Management'}</h1>
             <p className="text-gray-400 mt-1">
-              {t.hideRules.subtitle}
+              {t.hymofs.subtitle || 'Manage HymoFS features'}
             </p>
           </div>
         </div>
 
+        {/* Enable HymoFS Switch */}
+        <Card>
+          <Switch
+            checked={config.hymofs_enabled}
+            onChange={(checked) => updateConfig({ hymofs_enabled: checked })}
+            label={t.config.enableHymoFS || "Enable HymoFS"}
+          />
+        </Card>
+
+        {/* Kernel Version Spoofing Card */}
+        <Card>
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">{t.config.unameSpoof}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.config.unameSpoofDesc}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => updateConfig({ 
+                  uname_release: systemInfo.unameRelease || '', 
+                  uname_version: systemInfo.unameVersion || '' 
+                })}
+                size="sm"
+                variant="secondary"
+              >
+                {t.config.useSystemValue || 'Use System Value'}
+              </Button>
+              <Button 
+                onClick={() => updateConfig({ uname_release: '', uname_version: '' })}
+                size="sm"
+                variant="secondary"
+              >
+                {t.common.clear || 'Clear'}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <Input
+              label={t.config.unameRelease}
+              value={config.uname_release}
+              onChange={(e) => updateConfig({ uname_release: e.target.value })}
+              placeholder={systemInfo.unameRelease || "5.15.0-generic"}
+            />
+
+            <Input
+              label={t.config.unameVersion}
+              value={config.uname_version}
+              onChange={(e) => updateConfig({ uname_version: e.target.value })}
+              placeholder={systemInfo.unameVersion || "#1 SMP PREEMPT ..."}
+            />
+          </div>
+        </Card>
+
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-blue-500/10 border-blue-500/30">
-            <div className="flex items-center gap-3">
+        <Card className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+            <div className="flex items-center gap-3 p-2">
               <div className="p-3 bg-blue-500/20 rounded-lg">
                 <Eye size={24} className="text-blue-400" />
               </div>
@@ -136,22 +193,8 @@ export function HideRulesPage() {
                 <div className="text-sm text-gray-400">{t.hideRules.userRules}</div>
               </div>
             </div>
-          </Card>
 
-          <Card className="bg-purple-500/10 border-purple-500/30">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-500/20 rounded-lg">
-                <EyeOff size={24} className="text-purple-400" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-400">{moduleRuleCount}</div>
-                <div className="text-sm text-gray-400">{t.hideRules.moduleRules}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="bg-green-500/10 border-green-500/30">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 p-2">
               <div className="p-3 bg-green-500/20 rounded-lg">
                 <CheckCircle size={24} className="text-green-400" />
               </div>
@@ -160,24 +203,9 @@ export function HideRulesPage() {
                 <div className="text-sm text-gray-400">{t.hideRules.totalActive}</div>
               </div>
             </div>
-          </Card>
-        </div>
-
-        {/* Info Alert */}
-        <Card className="bg-blue-500/10 border-blue-500/30">
-          <div className="flex gap-3">
-            <AlertCircle className="text-blue-400 flex-shrink-0 mt-1" size={20} />
-            <div className="text-sm text-gray-300">
-              <p className="font-semibold text-blue-400 mb-1">{t.hideRules.aboutTitle}</p>
-              <ul className="list-disc list-inside space-y-1 text-gray-400">
-                <li>{t.hideRules.aboutHidden}</li>
-                <li>{t.hideRules.aboutStorage}</li>
-                <li>{t.hideRules.aboutModule}</li>
-                <li>{t.hideRules.aboutRemove}</li>
-              </ul>
-            </div>
           </div>
         </Card>
+
       </div>
 
       {/* Add New Rule */}
@@ -264,7 +292,7 @@ export function HideRulesPage() {
           <div className="text-center py-8 text-gray-400">{t.hideRules.loading}</div>
         ) : userRules.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            <EyeOff size={48} className="mx-auto mb-2 opacity-50" />
+            <Wrench size={48} className="mx-auto mb-2 opacity-50" />
             <p>{t.hideRules.noUserRules}</p>
             <p className="text-sm mt-1">{t.hideRules.noUserRulesHint}</p>
           </div>
@@ -293,48 +321,90 @@ export function HideRulesPage() {
         )}
       </Card>
 
-      {/* All Active Rules */}
+      {/* All Active Rules — INJECT hidden; MERGE shows source; first two are usually uname SPOOF */}
       <Card>
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <EyeOff size={20} />
+        <h2 className="text-xl font-bold mb-1 flex items-center gap-2">
+          <Wrench size={20} />
           {t.hideRules.allRules} ({totalRuleCount})
         </h2>
+        {t.hideRules.allRulesHint && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.hideRules.allRulesHint}</p>
+        )}
 
         {loading ? (
           <div className="text-center py-8 text-gray-400">{t.hideRules.loading}</div>
         ) : allRules.length === 0 ? (
           <div className="text-center py-8 text-gray-400">{t.hideRules.noActiveRules}</div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <ul className="divide-y divide-gray-700/50 max-h-96 overflow-y-auto rounded-lg border border-gray-700/50">
             {allRules.map((rule, index) => (
-              <div
-                key={`${rule.path}-${index}`}
-                className={`flex items-center gap-3 p-3 rounded-lg ${
-                  rule.isUserDefined
-                    ? 'bg-blue-500/10 border border-blue-500/30'
-                    : 'bg-gray-800/30 border border-gray-700/30'
-                }`}
+              <li
+                key={`${rule.type}-${rule.path}-${rule.source ?? ''}-${index}`}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/40 transition-colors"
               >
-                <FileText
-                  size={16}
-                  className={rule.isUserDefined ? 'text-blue-400' : 'text-gray-500'}
-                />
-                <code className="flex-1 text-sm font-mono text-gray-300 truncate">
-                  {rule.path}
-                </code>
-                <span
-                  className={`text-xs px-2 py-1 rounded ${
-                    rule.isUserDefined
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : 'bg-gray-700 text-gray-400'
-                  }`}
-                >
-                  {rule.isUserDefined ? t.hideRules.user : t.hideRules.module}
+                <span className="text-xs text-gray-500 font-medium tabular-nums w-10 flex-shrink-0">
+                  {rule.type}
                 </span>
-              </div>
+                <div
+                  className="flex-1 min-w-0 overflow-x-auto whitespace-nowrap no-scrollbar"
+                  onTouchStart={(e) => {
+                    pathScrollTouchRef.current = {
+                      x: e.touches[0].clientX,
+                      y: e.touches[0].clientY,
+                      locked: null,
+                    }
+                  }}
+                  onTouchMove={(e) => {
+                    const { x, y, locked } = pathScrollTouchRef.current
+                    const dx = e.touches[0].clientX - x
+                    const dy = e.touches[0].clientY - y
+                    const absDx = Math.abs(dx)
+                    const absDy = Math.abs(dy)
+                    if (locked === null && (absDx > 8 || absDy > 8)) {
+                      pathScrollTouchRef.current.locked = absDx > absDy ? 'h' : 'v'
+                    }
+                    if (pathScrollTouchRef.current.locked === 'h') {
+                      e.stopPropagation()
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    pathScrollTouchRef.current.locked = null
+                  }}
+                >
+                  <code className="text-sm font-mono text-gray-300">
+                    {rule.path}
+                    {rule.source != null && rule.source !== '' && (
+                      <span className="text-gray-500"> ← {rule.source}</span>
+                    )}
+                    {rule.target != null && rule.target !== '' && !rule.source && (
+                      <span className="text-gray-500"> → {rule.target}</span>
+                    )}
+                  </code>
+                </div>
+                {rule.isUserDefined && (
+                  <span className="text-[10px] uppercase tracking-wide text-gray-500 flex-shrink-0">
+                    {t.hideRules.user}
+                  </span>
+                )}
+              </li>
             ))}
-          </div>
+          </ul>
         )}
+      </Card>
+      {/* Info Alert */}
+      <Card className="bg-blue-500/10 border-blue-500/30">
+        <div className="flex gap-3">
+          <AlertCircle className="text-blue-400 flex-shrink-0 mt-1" size={20} />
+          <div className="text-sm text-gray-300">
+            <p className="font-semibold text-blue-400 mb-1">{t.hideRules.aboutTitle}</p>
+            <ul className="list-disc list-inside space-y-1 text-gray-400">
+              <li>{t.hideRules.aboutHidden}</li>
+              <li>{t.hideRules.aboutStorage}</li>
+              <li>{t.hideRules.aboutModule}</li>
+              <li>{t.hideRules.aboutRemove}</li>
+            </ul>
+          </div>
+        </div>
       </Card>
     </div>
   )
