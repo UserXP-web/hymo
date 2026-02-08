@@ -277,7 +277,7 @@ bool HymoFS::set_stealth(bool enable) {
 }
 
 bool HymoFS::set_enabled(bool enable) {
-    uint64_t val = enable ? 1 : 0;
+    int val = enable ? 1 : 0;
     LOG_INFO("HymoFS: Setting enabled=" + std::string(enable ? "true" : "false"));
     bool ret = hymo_execute_cmd(HYMO_IOC_SET_ENABLED, &val) == 0;
     if (!ret) {

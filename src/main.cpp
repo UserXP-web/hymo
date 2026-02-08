@@ -1224,6 +1224,13 @@ int main(int argc, char* argv[]) {
             // **HymoFS Fast Path**
             LOG_INFO("Mode: HymoFS Fast Path");
 
+            // Kernel defaults to hymofs_enabled=false; must set from config on every mount
+            if (HymoFS::set_enabled(config.hymofs_enabled)) {
+                LOG_INFO("HymoFS enabled=" + std::string(config.hymofs_enabled ? "true" : "false"));
+            } else {
+                LOG_WARN("Failed to set HymoFS enabled state.");
+            }
+
             // Determine Mirror Path
             // Priority: config.mirror_path > config.tempdir > /dev/hymo_mirror
             // When HymoFS is available, we can mount to /dev safely because HymoFS
