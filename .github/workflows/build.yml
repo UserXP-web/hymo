@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+      - lkm
     paths-ignore:
       - '**.md'
       - '.gitignore'
