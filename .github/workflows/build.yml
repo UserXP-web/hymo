@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           echo "Cloning HymoFS (ref: ${HYMOFS_REF})..."
           git clone --depth 1 "https://github.com/${HYMOFS_REPO}.git" hymofs_src
-          (cd hymofs_src && git fetch --depth 1 origin "${HYMOFS_REF}" && git checkout "${HYMOFS_REF}")
+          (cd hymofs_src && git fetch --depth 1 origin "${HYMOFS_REF}" && git checkout FETCH_HEAD)
           echo "Cloning kernel tree (${KERNEL_BRANCH})..."
           git clone --depth 1 -b "${KERNEL_BRANCH}" https://android.googlesource.com/kernel/common kernel_src
           sudo apt-get update
