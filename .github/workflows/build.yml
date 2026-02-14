@@ -13,7 +13,13 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      hymofs_ref:
+        description: 'HymoFS ref to clone (branch/tag/SHA)'
+        required: false
+        default: 'lkm'
   # 由 HymoFS 仓库 call 触发：构建完整模块（与 push 时相同）
+  # 注意：repository_dispatch 只有默认分支上的 workflow 会被触发
   repository_dispatch:
     types: [build-lkm]
 
@@ -55,8 +61,8 @@ jobs:
         env:
           HYMOFS_REPO: Anatdx/HymoFS
           KERNEL_BRANCH: android15-6.6
-          # repository_dispatch 时用 client_payload.ref，否则用 lkm
-          HYMOFS_REF: ${{ github.event.client_payload.ref || 'lkm' }}
+          # workflow_dispatch 用 inputs.hymofs_ref，repository_dispatch 用 client_payload.ref，否则 lkm
+          HYMOFS_REF: ${{ github.event.inputs.hymofs_ref || github.event.client_payload.ref || 'lkm' }}
         run: |
           set -euo pipefail
           echo "Cloning HymoFS (ref: ${HYMOFS_REF})..."
