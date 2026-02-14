@@ -93,9 +93,9 @@ async def main():
         if (session_str and session_str.strip())
         else MemorySession()
     )
-    async with TelegramClient(session, API_ID, API_HASH).start(
-        bot_token=BOT_TOKEN
-    ) as bot:
+    client = TelegramClient(session, API_ID, API_HASH)
+    await client.start(bot_token=BOT_TOKEN)
+    try:
         caption = [""] * len(files)
         caption[-1] = get_caption()
         print("[+] Caption: ")
@@ -103,7 +103,7 @@ async def main():
         print(caption)
         print("---")
         print("[+] Sending")
-        await bot.send_file(
+        await client.send_file(
             entity=CHAT_ID,
             file=files,
             caption=caption,
@@ -111,6 +111,8 @@ async def main():
             parse_mode="markdown",
         )
         print("[+] Done!")
+    finally:
+        await client.disconnect()
 
 
 if __name__ == "__main__":
