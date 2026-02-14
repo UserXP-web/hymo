@@ -86,13 +86,15 @@ jobs:
           ls -la module/hymofs_lkm.ko
           echo "HymoFS LKM ready for package."
 
-      - name: Set version from git commit count
+      - name: Set version (commit count + 8-char hash)
         run: |
-          VERSION=$(git rev-list --count HEAD)
-          echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
-          sed -i "s/^version=.*/version=${VERSION}/" module/module.prop
-          sed -i "s/^versionCode=.*/versionCode=${VERSION}/" module/module.prop
-          echo "Building version: $VERSION (commit count)"
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          SHORT_HASH=$(git rev-parse --short=8 HEAD)
+          MODULE_VERSION="${COMMIT_COUNT}-${SHORT_HASH}"
+          echo "MODULE_VERSION=$MODULE_VERSION" >> $GITHUB_ENV
+          sed -i "s/^version=.*/version=${MODULE_VERSION}/" module/module.prop
+          sed -i "s/^versionCode=.*/versionCode=${COMMIT_COUNT}/" module/module.prop
+          echo "Building version: $MODULE_VERSION (versionCode=$COMMIT_COUNT)"
 
       - name: Build Project
         env:

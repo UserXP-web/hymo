@@ -289,6 +289,20 @@ case $COMMAND in
         build_arch "arm64-v8a"
         build_arch "armeabi-v7a"
         build_arch "x86_64"
+        if [ -d "${PROJECT_ROOT}/.git" ]; then
+            COMMIT_COUNT=$(git -C "${PROJECT_ROOT}" rev-list --count HEAD 2>/dev/null || echo "0")
+            SHORT_HASH=$(git -C "${PROJECT_ROOT}" rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
+            MODULE_VERSION="${COMMIT_COUNT}-${SHORT_HASH}"
+            PROP="${PROJECT_ROOT}/module/module.prop"
+            if [ "$OS_TYPE" = "macos" ]; then
+                sed -i '' "s/^version=.*/version=${MODULE_VERSION}/" "$PROP"
+                sed -i '' "s/^versionCode=.*/versionCode=${COMMIT_COUNT}/" "$PROP"
+            else
+                sed -i "s/^version=.*/version=${MODULE_VERSION}/" "$PROP"
+                sed -i "s/^versionCode=.*/versionCode=${COMMIT_COUNT}/" "$PROP"
+            fi
+            print_info "Module version: ${MODULE_VERSION}"
+        fi
         print_info "Packaging..."
         cmake --build "${BUILD_DIR}/arm64-v8a" --target package
         ;;
