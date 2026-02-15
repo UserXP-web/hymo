@@ -18,6 +18,12 @@ on:
         description: 'HymoFS ref to clone (branch/tag/SHA)'
         required: false
         default: 'lkm'
+      hymofs_sha:
+        description: 'HymoFS commit SHA (for TG caption when triggered by HymoFS CI)'
+        required: false
+      hymofs_commit_message:
+        description: 'HymoFS commit message (for TG caption)'
+        required: false
   # 由 HymoFS 仓库 call 触发：构建完整模块（与 push 时相同）
   # 注意：repository_dispatch 只有默认分支上的 workflow 会被触发
   repository_dispatch:
@@ -205,8 +211,9 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          # 由 HymoFS CI 触发时展示 HymoFS 的 commit，否则展示 hymo 的
+          COMMIT_URL: ${{ github.event.inputs.hymofs_sha && format('{0}/Anatdx/HymoFS/commit/{1}', github.server_url, github.event.inputs.hymofs_sha) || format('{0}/{1}/commit/{2}', github.server_url, github.repository, github.sha) }}
+          COMMIT_MESSAGE: ${{ github.event.inputs.hymofs_commit_message || github.event.head_commit.message }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: "Hymo Build"
           VERSION: ${{ env.MODULE_VERSION }}
