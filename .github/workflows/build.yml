@@ -98,6 +98,7 @@ jobs:
           COMMIT_COUNT=$(git rev-list --count HEAD)
           SHORT_HASH=$(git rev-parse --short=8 HEAD)
           VERSION_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION_TAG="v0.0.$COMMIT_COUNT"
           echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
           echo "SHORT_HASH=$SHORT_HASH" >> $GITHUB_ENV
           echo "COMMIT_COUNT=$COMMIT_COUNT" >> $GITHUB_ENV
