@@ -88,7 +88,7 @@ export function InfoPage() {
           </div>
           <div className="flex justify-between items-center py-2">
             <span className="text-gray-500 dark:text-gray-400">License</span>
-            <span className="text-gray-900 dark:text-white">Apache 2.0</span>
+            <span className="text-gray-900 dark:text-white">GPL-3.0</span>
           </div>
         </div>
       </Card>
