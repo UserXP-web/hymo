@@ -235,8 +235,11 @@ int main(int argc, char* argv[]) {
     try {
         CliOptions cli = parse_args(argc, argv);
 
-        // Initialize logger globally for all commands
-        Logger::getInstance().init(cli.verbose, cli.verbose, DAEMON_LOG_FILE);
+        // Load config first so Logger uses config.debug/config.verbose
+        Config config = load_config(cli);
+        config.merge_with_cli(cli.moduledir, cli.tempdir, cli.mountsource, cli.verbose,
+                              cli.partitions);
+        Logger::getInstance().init(config.debug, config.verbose, DAEMON_LOG_FILE);
 
         if (cli.command.empty()) {
             print_help();
