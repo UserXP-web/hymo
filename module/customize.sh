@@ -72,7 +72,7 @@ fi
 cp "$MODPATH/$BINARY_NAME" "$MODPATH/hymod"
 chmod 755 "$MODPATH/hymod"
 
-# 2. LKM selection (filter by arch, then KMI)
+# 2. LKM selection (by KMI only, no arch filter - GKI LKM is arm64)
 LKM_DIR="$MODPATH/lkm"
 if [ -d "$LKM_DIR" ]; then
     ui_print "- Detecting kernel KMI..."
@@ -84,11 +84,12 @@ if [ -d "$LKM_DIR" ]; then
         KMI="${ANDROID}-${KVER}"
     fi
 
-    # Filter ko by arch prefix (e.g. arm64_*, arm_*, x86_64_*)
+    # List all hymofs_lkm.ko (no arch prefix - GKI modules are arm64)
     KO_LIST=""
-    for ko in "$LKM_DIR"/${ARCH_PREFIX}_*_hymofs_lkm.ko; do
+    for ko in "$LKM_DIR"/*_hymofs_lkm.ko "$LKM_DIR"/*.ko; do
         [ -f "$ko" ] && KO_LIST="$KO_LIST $ko"
     done
+    KO_LIST=$(echo "$KO_LIST" | tr ' ' '\n' | sort -u | tr '\n' ' ')
 
     SELECTED_KO=""
     if [ -n "$KMI" ]; then
@@ -124,7 +125,7 @@ if [ -d "$LKM_DIR" ]; then
             rm -rf "$LKM_DIR"
         fi
     else
-        ui_print "- No LKM for arch $ARCH_PREFIX; keeping lkm/ for fallback"
+        ui_print "- No LKM found in lkm/; keeping lkm/ for fallback"
     fi
 fi
 
