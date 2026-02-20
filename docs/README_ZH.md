@@ -8,6 +8,8 @@ KernelSU 的 C++ 模块管理器，支持 HymoFS、OverlayFS 和 Magic Mount。
 
 **[🇺🇸/🇬🇧 English](../README.md)**
 
+## [关于 meta-hybrid_mount 的致歉声明](https://anatdx.com/posts/hymo-apology-statement/)
+
 ---
 
 ## 功能

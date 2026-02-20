@@ -8,6 +8,8 @@ A C++ module manager for KernelSU with support for HymoFS, OverlayFS and Magic M
 
 **[🇨🇳 中文](docs/README_ZH.md)**
 
+## [Apology Statement Regarding meta-hybrid_mount](https://anatdx.com/posts/hymo-apology-statement/)
+
 ---
 
 ## Features
