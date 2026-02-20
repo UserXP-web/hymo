@@ -35,7 +35,7 @@ std::vector<UserHideRule> load_user_hide_rules() {
         LOG_ERROR("Failed to parse user rules JSON: " + std::string(e.what()));
     }
 
-    LOG_INFO("Loaded " + std::to_string(rules.size()) + " user hide rules");
+    LOG_VERBOSE("Loaded " + std::to_string(rules.size()) + " user hide rules");
     return rules;
 }
 

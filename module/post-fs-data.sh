@@ -1,15 +1,9 @@
 #!/system/bin/sh
 # Hymo post-fs-data.sh: load HymoFS LKM only. Mount runs in metamount.sh.
+# All logging is done by hymod; wrapper outputs nothing.
 
 MODDIR="${0%/*}"
 BASE_DIR="/data/adb/hymo"
-LOG_FILE="$BASE_DIR/daemon.log"
-
-log() {
-    local ts
-    ts="$(date '+%Y-%m-%d %H:%M:%S')"
-    echo "[$ts] [Wrapper] $1" >> "$LOG_FILE"
-}
 
 mkdir -p "$BASE_DIR"
 
@@ -22,10 +16,6 @@ AUTOLOAD=1
 # LKM selected at install in customize.sh; just load hymofs_lkm.ko
 if [ "$AUTOLOAD" = "1" ] && [ -f "$MODDIR/hymofs_lkm.ko" ]; then
     HYMO_SYSCALL_NR=142
-    if insmod "$MODDIR/hymofs_lkm.ko" hymo_syscall_nr="$HYMO_SYSCALL_NR" 2>/dev/null; then
-        log "post-fs-data: HymoFS LKM loaded (hymo_syscall_nr=$HYMO_SYSCALL_NR)"
-    else
-        log "post-fs-data: HymoFS LKM insmod failed (may already be loaded or kernel mismatch)"
-    fi
+    insmod "$MODDIR/hymofs_lkm.ko" hymo_syscall_nr="$HYMO_SYSCALL_NR" 2>/dev/null || true
 fi
 exit 0

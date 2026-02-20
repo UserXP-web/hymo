@@ -1218,7 +1218,7 @@ int main(int argc, char* argv[]) {
         config.merge_with_cli(cli.moduledir, cli.tempdir, cli.mountsource, cli.verbose,
                               cli.partitions);
 
-        // Re-initialize logger with merged config
+        // Re-initialize logger with merged config. hymod writes all logs to daemon.log.
         Logger::getInstance().init(config.debug, config.verbose, DAEMON_LOG_FILE);
 
         // Camouflage process

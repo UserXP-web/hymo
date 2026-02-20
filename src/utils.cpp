@@ -26,8 +26,9 @@ Logger& Logger::getInstance() {
 }
 
 void Logger::init(bool debug, bool verbose, const fs::path& log_path) {
-    debug_ = debug || verbose;
-    verbose_ = verbose;
+    // verbose < debug: verbose shows VERBOSE; debug shows VERBOSE+DEBUG
+    verbose_ = verbose || debug;
+    debug_ = debug;
     log_file_.reset();
     if (!log_path.empty()) {
         try {

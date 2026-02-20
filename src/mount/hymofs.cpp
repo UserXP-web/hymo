@@ -48,7 +48,7 @@ static int get_anon_fd() {
     }
 
     s_hymo_fd = fd;
-    LOG_INFO("HymoFS: Got anonymous fd " + std::to_string(fd));
+    LOG_VERBOSE("HymoFS: Got anonymous fd " + std::to_string(fd));
     return fd;
 }
 
@@ -115,7 +115,7 @@ HymoFSStatus HymoFS::check_status() {
         return HymoFSStatus::ModuleTooOld;
     }
 
-    LOG_INFO("HymoFS check_status: Available (version " + std::to_string(k_ver) + ")");
+    LOG_VERBOSE("HymoFS check_status: Available (version " + std::to_string(k_ver) + ")");
     s_cached_status = HymoFSStatus::Available;
     s_status_checked = true;
     return HymoFSStatus::Available;
@@ -261,7 +261,7 @@ std::string HymoFS::get_active_rules() {
 
     struct hymo_syscall_list_arg arg = {.buf = raw_buf, .size = buf_size};
 
-    LOG_INFO("HymoFS: Listing active rules...");
+    LOG_VERBOSE("HymoFS: Listing active rules...");
     int ret = hymo_execute_cmd(HYMO_IOC_LIST_RULES, &arg);
     if (ret < 0) {
         std::string err = "Error: command failed: ";
@@ -273,7 +273,7 @@ std::string HymoFS::get_active_rules() {
     }
 
     std::string result(raw_buf);
-    LOG_INFO("HymoFS: get_active_rules returned " + std::to_string(result.length()) + " bytes");
+    LOG_VERBOSE("HymoFS: get_active_rules returned " + std::to_string(result.length()) + " bytes");
 
     free(raw_buf);
     return result;
@@ -281,7 +281,7 @@ std::string HymoFS::get_active_rules() {
 
 bool HymoFS::set_debug(bool enable) {
     int val = enable ? 1 : 0;
-    LOG_INFO("HymoFS: Setting debug=" + std::string(enable ? "true" : "false"));
+    LOG_VERBOSE("HymoFS: Setting debug=" + std::string(enable ? "true" : "false"));
     bool ret = hymo_execute_cmd(HYMO_IOC_SET_DEBUG, &val) == 0;
     if (!ret) {
         LOG_ERROR("HymoFS: set_debug failed: " + std::string(strerror(errno)));
@@ -291,7 +291,7 @@ bool HymoFS::set_debug(bool enable) {
 
 bool HymoFS::set_stealth(bool enable) {
     int val = enable ? 1 : 0;
-    LOG_INFO("HymoFS: Setting stealth=" + std::string(enable ? "true" : "false"));
+    LOG_VERBOSE("HymoFS: Setting stealth=" + std::string(enable ? "true" : "false"));
     bool ret = hymo_execute_cmd(HYMO_IOC_SET_STEALTH, &val) == 0;
     if (!ret) {
         LOG_ERROR("HymoFS: set_stealth failed: " + std::string(strerror(errno)));
@@ -301,12 +301,12 @@ bool HymoFS::set_stealth(bool enable) {
 
 bool HymoFS::set_enabled(bool enable) {
     int val = enable ? 1 : 0;
-    LOG_INFO("HymoFS: Setting enabled=" + std::string(enable ? "true" : "false"));
+    LOG_VERBOSE("HymoFS: Setting enabled=" + std::string(enable ? "true" : "false"));
     bool ret = hymo_execute_cmd(HYMO_IOC_SET_ENABLED, &val) == 0;
     if (!ret) {
         LOG_ERROR("HymoFS: set_enabled failed: " + std::string(strerror(errno)));
     } else {
-        LOG_INFO("HymoFS: HymoFS is now " + std::string(enable ? "enabled" : "disabled"));
+        LOG_VERBOSE("HymoFS: HymoFS is now " + std::string(enable ? "enabled" : "disabled"));
     }
     return ret;
 }
@@ -326,7 +326,7 @@ bool HymoFS::set_uname(const std::string& release, const std::string& version) {
         uname_data.version[HYMO_UNAME_LEN - 1] = '\0';
     }
 
-    LOG_INFO("HymoFS: Setting uname: release=\"" + release + "\", version=\"" + version + "\"");
+    LOG_VERBOSE("HymoFS: Setting uname: release=\"" + release + "\", version=\"" + version + "\"");
     bool ret = hymo_execute_cmd(HYMO_IOC_SET_UNAME, &uname_data) == 0;
     if (!ret) {
         if (errno == EOPNOTSUPP) {
@@ -335,7 +335,7 @@ bool HymoFS::set_uname(const std::string& release, const std::string& version) {
             LOG_ERROR("HymoFS: set_uname failed: " + std::string(strerror(errno)));
         }
     } else {
-        LOG_INFO("HymoFS: set_uname success");
+        LOG_VERBOSE("HymoFS: set_uname success");
     }
     return ret;
 }
