@@ -136,10 +136,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set LKM arch suffix
+        id: lkm-arch
+        run: |
+          case "${{ matrix.arch }}" in
+            arm64-v8a)   echo "arch=arm64" >> $GITHUB_OUTPUT ;;
+            armeabi-v7a) echo "arch=armv7" >> $GITHUB_OUTPUT ;;
+            x86_64)      echo "arch=x86_64" >> $GITHUB_OUTPUT ;;
+            *) echo "Unknown arch: ${{ matrix.arch }}"; exit 1 ;;
+          esac
+
       - name: Download LKM artifacts for ${{ matrix.arch }}
         uses: actions/download-artifact@v4
         with:
-          pattern: '*_${{ matrix.arch == 'arm64-v8a' && 'arm64' || (matrix.arch == 'armeabi-v7a' && 'armv7' || 'x86_64') }}_hymofs_lkm.ko'
+          pattern: '*_${{ steps.lkm-arch.outputs.arch }}_hymofs_lkm.ko'
           merge-multiple: true
 
       - name: Prepare assets
