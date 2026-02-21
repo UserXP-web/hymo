@@ -7,15 +7,16 @@
 #include <sys/vfs.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <algorithm>
+#include <cinttypes>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <vector>
 #include "../defs.hpp"
 #include "../utils.hpp"
 #include "json.hpp"
 #include "state.hpp"
-
-#include <cinttypes>
 
 namespace hymo {
 
@@ -58,69 +59,98 @@ static void repair_storage_root_permissions(const fs::path& target) {
     }
 }
 
-// Remove static to expose it
+// Calculate directory size (bytes)
+static uint64_t dir_size(const fs::path& path) {
+    uint64_t total = 0;
+    try {
+        if (!fs::exists(path) || !fs::is_directory(path))
+            return 0;
+        for (const auto& e : fs::recursive_directory_iterator(path)) {
+            if (e.is_regular_file())
+                total += e.file_size();
+        }
+    } catch (...) {
+        /* ignore */
+    }
+    return total;
+}
+
+// Run mkfs.ext4 via execve (no shell)
+static bool run_mkfs_ext4(const fs::path& img_path) {
+    const char* mkfs_paths[] = {"/system/bin/mkfs.ext4", "/system/bin/mke2fs", "/sbin/mkfs.ext4",
+                                "/sbin/mke2fs"};
+    const char* mkfs_bin = nullptr;
+    for (const auto& p : mkfs_paths) {
+        if (access(p, X_OK) == 0) {
+            mkfs_bin = p;
+            break;
+        }
+    }
+    if (!mkfs_bin) {
+        LOG_ERROR("mkfs.ext4/mke2fs not found");
+        return false;
+    }
+
+    std::string path_str = img_path.string();
+    std::vector<const char*> argv = {mkfs_bin, "-t", "ext4", "-b", "1024", path_str.c_str(), nullptr};
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        LOG_ERROR("fork failed: " + std::string(strerror(errno)));
+        return false;
+    }
+    if (pid == 0) {
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > 2)
+                close(devnull);
+        }
+        execve(mkfs_bin, const_cast<char* const*>(argv.data()), ::environ);
+        _exit(127);
+    }
+    int status;
+    if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        LOG_ERROR("mkfs.ext4 failed");
+        return false;
+    }
+    return true;
+}
+
 bool create_image(const fs::path& base_dir) {
     LOG_INFO("Creating modules.img...");
     fs::path img_file = base_dir / "modules.img";
+    fs::path modules_dir = base_dir / "modules";
 
-    // Ensure directory exists
     if (!fs::exists(base_dir)) {
         fs::create_directories(base_dir);
     }
 
-    // Remove existing file to ensure clean state
     if (fs::exists(img_file)) {
         fs::remove(img_file);
     }
 
-    // 1. Create file with dd
-    // Use dd instead of truncate for better compatibility and to avoid sparse file issues
-    // Try standard paths first
-    const char* dd_paths[] = {"/system/bin/dd", "/sbin/dd"};
-    std::string dd_bin = "dd";
-    for (const auto& p : dd_paths) {
-        if (access(p, X_OK) == 0) {
-            dd_bin = p;
-            break;
-        }
-    }
+    // Dynamic size: max(moduledir_size * 1.2, 64MB) - align with mhm
+    const uint64_t min_size = 64ULL * 1024 * 1024;
+    uint64_t total = dir_size(modules_dir);
+    uint64_t grow_size = std::max(static_cast<uint64_t>(total * 1.2), min_size);
 
-    std::string dd_cmd =
-        dd_bin + " if=/dev/zero of=" + img_file.string() + " bs=1M count=2048 >/dev/null 2>&1";
-    if (std::system(dd_cmd.c_str()) != 0) {
-        LOG_ERROR("Failed to create image file with dd (" + dd_bin + ")");
+    int fd = open(img_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        LOG_ERROR("Failed to create image file: " + std::string(strerror(errno)));
         return false;
     }
-
-    // 2. Disable F2FS compression (if supported)
-    const char* chattr_paths[] = {"/system/bin/chattr", "/system/xbin/chattr", "/sbin/chattr"};
-    std::string chattr_bin = "chattr";
-    for (const auto& p : chattr_paths) {
-        if (access(p, X_OK) == 0) {
-            chattr_bin = p;
-            break;
-        }
+    if (ftruncate(fd, grow_size) != 0) {
+        LOG_ERROR("ftruncate failed: " + std::string(strerror(errno)));
+        close(fd);
+        fs::remove(img_file);
+        return false;
     }
-    std::string chattr_cmd = chattr_bin + " -c " + img_file.string() + " >/dev/null 2>&1";
-    std::system(chattr_cmd.c_str());
+    close(fd);
 
-    // 3. Find mke2fs
-    const char* mke2fs_paths[] = {"/system/bin/mke2fs", "/sbin/mke2fs"};
-    std::string mke2fs_bin = "mke2fs";  // fallback to PATH
-    for (const auto& p : mke2fs_paths) {
-        if (access(p, X_OK) == 0) {
-            mke2fs_bin = p;
-            break;
-        }
-    }
-
-    // 4. Format
-    // -t ext4 -O ^has_journal,^metadata_csum,^64bit -F
-    std::string mkfs_cmd = mke2fs_bin + " -t ext4 -O ^has_journal,^metadata_csum,^64bit -F " +
-                           img_file.string() + " >/dev/null 2>&1";
-
-    if (std::system(mkfs_cmd.c_str()) != 0) {
-        LOG_ERROR("Failed to format ext4 image");
+    if (!run_mkfs_ext4(img_file)) {
         fs::remove(img_file);
         return false;
     }
@@ -146,29 +176,49 @@ static bool create_erofs_image(const fs::path& modules_dir, const fs::path& imag
         fs::remove(image_path);
     }
 
-    // Compress with lz4hc
-    std::string cmd =
-        "mkfs.erofs -zlz4hc,9 " + image_path.string() + " " + modules_dir.string() + " 2>&1";
-
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        LOG_ERROR("Failed to execute mkfs.erofs");
+    const char* mkfs_paths[] = {"/system/bin/mkfs.erofs", "/vendor/bin/mkfs.erofs",
+                                "/sbin/mkfs.erofs"};
+    const char* mkfs_bin = nullptr;
+    for (const auto& p : mkfs_paths) {
+        if (access(p, X_OK) == 0) {
+            mkfs_bin = p;
+            break;
+        }
+    }
+    if (!mkfs_bin) {
+        LOG_ERROR("mkfs.erofs not found");
         return false;
     }
 
-    char buffer[256];
-    std::string output = "";
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        output += buffer;
-    }
+    std::string img_str = image_path.string();
+    std::string mod_str = modules_dir.string();
+    std::vector<const char*> argv = {mkfs_bin, "-zlz4hc,9", img_str.c_str(), mod_str.c_str(),
+                                    nullptr};
 
-    int ret = pclose(pipe);
-    if (WEXITSTATUS(ret) != 0) {
-        LOG_ERROR("Failed to create EROFS image: " + output);
+    pid_t pid = fork();
+    if (pid < 0) {
+        LOG_ERROR("fork failed: " + std::string(strerror(errno)));
+        return false;
+    }
+    if (pid == 0) {
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > 2)
+                close(devnull);
+        }
+        execve(mkfs_bin, const_cast<char* const*>(argv.data()), ::environ);
+        _exit(127);
+    }
+    int status;
+    if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        LOG_ERROR("Failed to create EROFS image");
         return false;
     }
 
-    LOG_INFO("EROFS image created: " + output);
+    LOG_INFO("EROFS image created");
     return true;
 }
 

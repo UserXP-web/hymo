@@ -7,6 +7,7 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 #include <cstring>
@@ -15,7 +16,10 @@
 #include <iostream>
 #include <set>
 #include <sstream>
+#include <vector>
 #include "defs.hpp"
+
+extern char** environ;
 
 namespace hymo {
 
@@ -139,12 +143,13 @@ bool is_xattr_supported(const fs::path& path) {
     }
 }
 
-bool mount_tmpfs(const fs::path& target) {
+bool mount_tmpfs(const fs::path& target, const char* source) {
     if (!ensure_dir_exists(target)) {
         return false;
     }
 
-    if (mount("tmpfs", target.c_str(), "tmpfs", 0, "mode=0755") != 0) {
+    const char* src = (source && *source) ? source : OVERLAY_SOURCE;
+    if (mount(src, target.c_str(), "tmpfs", 0, "mode=0755") != 0) {
         LOG_ERROR("Failed to mount tmpfs at " + target.string() + ": " + strerror(errno));
         return false;
     }
@@ -344,25 +349,58 @@ bool mount_image(const fs::path& image_path, const fs::path& target, const std::
     return true;
 }
 
+// Run external binary via execve (no shell)
+static bool exec_run(const char* bin_path, const std::vector<const char*>& argv) {
+    pid_t pid = fork();
+    if (pid < 0) {
+        LOG_ERROR("fork failed: " + std::string(strerror(errno)));
+        return false;
+    }
+    if (pid == 0) {
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > 2)
+                close(devnull);
+        }
+        execve(bin_path, const_cast<char* const*>(argv.data()), environ);
+        _exit(127);
+    }
+    int status;
+    if (waitpid(pid, &status, 0) != pid) {
+        LOG_ERROR("waitpid failed");
+        return false;
+    }
+    return WIFEXITED(status) && (WEXITSTATUS(status) <= 2);
+}
+
 bool repair_image(const fs::path& image_path) {
     LOG_INFO("Running e2fsck on " + image_path.string());
 
-    std::string cmd = "e2fsck -y -f " + image_path.string() + " >/dev/null 2>&1";
-    int ret = system(cmd.c_str());
-
-    if (WIFEXITED(ret)) {
-        int code = WEXITSTATUS(ret);
-        if (code <= 2) {
-            LOG_INFO("Image repair success (code " + std::to_string(code) + ")");
-            return true;
-        } else {
-            LOG_ERROR("e2fsck failed: " + std::to_string(code));
-            return false;
+    const char* e2fsck_paths[] = {"/system/bin/e2fsck", "/sbin/e2fsck", "/vendor/bin/e2fsck"};
+    const char* e2fsck_bin = nullptr;
+    for (const auto& p : e2fsck_paths) {
+        if (access(p, X_OK) == 0) {
+            e2fsck_bin = p;
+            break;
         }
     }
+    if (!e2fsck_bin) {
+        LOG_ERROR("e2fsck not found");
+        return false;
+    }
 
-    LOG_ERROR("e2fsck execution failed");
-    return false;
+    std::string path_str = image_path.string();
+    std::vector<const char*> argv = {e2fsck_bin, "-y", "-f", path_str.c_str(), nullptr};
+
+    if (!exec_run(e2fsck_bin, argv)) {
+        LOG_ERROR("e2fsck failed");
+        return false;
+    }
+    LOG_INFO("Image repair success");
+    return true;
 }
 
 static bool native_cp_r(const fs::path& src, const fs::path& dst) {

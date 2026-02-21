@@ -23,8 +23,31 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Find Python 3
+find_package(Python3 REQUIRED)
+
+# Generated sources / embedded assets
+set(ASSETS_DIR ${CMAKE_SOURCE_DIR}/assets)
+set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
+set(ASSETS_CPP ${GENERATED_DIR}/assets_data.cpp)
+
+# Create assets directory if not exists
+file(MAKE_DIRECTORY ${ASSETS_DIR})
+
+file(GLOB ASSET_FILES "${ASSETS_DIR}/*")
+
+# Run embed_assets.py to generate assets_data.cpp
+add_custom_command(
+    OUTPUT ${ASSETS_CPP}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${GENERATED_DIR}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/embed_assets.py ${ASSETS_DIR} ${ASSETS_CPP}
+    DEPENDS ${CMAKE_SOURCE_DIR}/scripts/embed_assets.py ${ASSET_FILES}
+    COMMENT "Generating embedded assets..."
+)
+
 # Source files
 set(HYMO_SOURCES
+    ${ASSETS_CPP}
     src/main.cpp
     src/utils.cpp
     src/conf/config.cpp
@@ -85,6 +108,7 @@ set(HYMO_LINK_OPTIONS
     -Wl,--hash-style=gnu
     -Wl,--build-id=none
     -Wl,-z,norelro
+    -lz
 )
 
 # Check if we are cross compiling for Android

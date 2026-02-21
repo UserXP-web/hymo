@@ -619,7 +619,7 @@ bool mount_partitions(const fs::path& tmp_path, const std::vector<fs::path>& mod
 
     fs::path work_dir = tmp_path / "workdir";
 
-    if (!mount_tmpfs(work_dir)) {
+    if (!mount_tmpfs(work_dir, mount_source.c_str())) {
         LOG_ERROR("Failed to create workdir tmpfs at " + work_dir.string());
         delete root;
         return false;

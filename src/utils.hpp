@@ -37,7 +37,7 @@ std::string lgetfilecon(const fs::path& path);
 std::string get_context_for_path(const fs::path& path);
 bool copy_path_context(const fs::path& src, const fs::path& dst);
 
-bool mount_tmpfs(const fs::path& target);
+bool mount_tmpfs(const fs::path& target, const char* source = nullptr);
 bool mount_image(const fs::path& image_path, const fs::path& target,
                  const std::string& fs_type = "ext4",
                  const std::string& options = "loop,rw,noatime");

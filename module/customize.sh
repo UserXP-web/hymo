@@ -72,63 +72,6 @@ fi
 cp "$MODPATH/$BINARY_NAME" "$MODPATH/hymod"
 chmod 755 "$MODPATH/hymod"
 
-# 2. LKM selection (by KMI only, no arch filter - GKI LKM is arm64)
-LKM_DIR="$MODPATH/lkm"
-if [ -d "$LKM_DIR" ]; then
-    ui_print "- Detecting kernel KMI..."
-    UNAME=$(cat /proc/sys/kernel/osrelease 2>/dev/null || echo "")
-    KMI=""
-    if echo "$UNAME" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?-android[0-9]+'; then
-        KVER=$(echo "$UNAME" | grep -oE '^[0-9]+\.[0-9]+')
-        ANDROID=$(echo "$UNAME" | grep -oE 'android[0-9]+')
-        KMI="${ANDROID}-${KVER}"
-    fi
-
-    # List all hymofs_lkm.ko (no arch prefix - GKI modules are arm64)
-    KO_LIST=""
-    for ko in "$LKM_DIR"/*_hymofs_lkm.ko "$LKM_DIR"/*.ko; do
-        [ -f "$ko" ] && KO_LIST="$KO_LIST $ko"
-    done
-    KO_LIST=$(echo "$KO_LIST" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-
-    SELECTED_KO=""
-    if [ -n "$KMI" ]; then
-        for ko in $KO_LIST; do
-            if echo "$ko" | grep -q "${KMI}_hymofs_lkm"; then
-                SELECTED_KO="$ko"
-                break
-            fi
-        done
-    fi
-
-    if [ -n "$SELECTED_KO" ]; then
-        cp "$SELECTED_KO" "$MODPATH/hymofs_lkm.ko"
-        ui_print "- Selected LKM: $(basename "$SELECTED_KO")"
-        rm -rf "$LKM_DIR"
-    elif [ -n "$KO_LIST" ]; then
-        ui_print "- No KMI match for $UNAME, please select manually:"
-        if select_menu "$KO_LIST"; then
-            idx=0
-            for ko in $KO_LIST; do
-                if [ "$idx" -eq "$MENU_SELECT" ]; then
-                    cp "$ko" "$MODPATH/hymofs_lkm.ko"
-                    ui_print "- Selected: $(basename "$ko")"
-                    break
-                fi
-                idx=$((idx + 1))
-            done
-            rm -rf "$LKM_DIR"
-        else
-            FIRST_KO=$(echo "$KO_LIST" | awk '{print $1}')
-            cp "$FIRST_KO" "$MODPATH/hymofs_lkm.ko"
-            ui_print "- Using first available: $(basename "$FIRST_KO")"
-            rm -rf "$LKM_DIR"
-        fi
-    else
-        ui_print "- No LKM found in lkm/; keeping lkm/ for fallback"
-    fi
-fi
-
 # Remove unused binaries
 ui_print "- Cleaning unused binaries..."
 for binary in hymod-arm64-v8a hymod-armeabi-v7a hymod-x86_64; do

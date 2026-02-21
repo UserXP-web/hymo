@@ -1,7 +1,15 @@
 #include "lkm.hpp"
 #include "../defs.hpp"
 #include "../mount/hymofs.hpp"
+#include "../utils.hpp"
+#include "assets.hpp"
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 
@@ -9,6 +17,42 @@ namespace fs = std::filesystem;
 namespace hymo {
 
 static constexpr int HYMO_SYSCALL_NR = 142;
+
+// finit_module syscall numbers
+#if defined(__aarch64__)
+#define SYS_finit_module_num 379
+#define SYS_delete_module_num 106
+#elif defined(__x86_64__) || defined(__i386__)
+#define SYS_finit_module_num 313
+#define SYS_delete_module_num 176
+#else
+#define SYS_finit_module_num 379
+#define SYS_delete_module_num 106
+#endif
+
+static bool load_module_via_finit(const char* ko_path, const char* params) {
+    const int fd = open(ko_path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        LOG_ERROR(std::string("lkm: open ") + ko_path + " failed: " + strerror(errno));
+        return false;
+    }
+    const int ret = syscall(SYS_finit_module_num, fd, params, 0);
+    close(fd);
+    if (ret != 0) {
+        LOG_ERROR(std::string("lkm: finit_module ") + ko_path + " failed: " + strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+static bool unload_module_via_syscall(const char* modname) {
+    const int ret = syscall(SYS_delete_module_num, modname, O_NONBLOCK);
+    if (ret != 0) {
+        LOG_ERROR(std::string("lkm: delete_module ") + modname + " failed: " + strerror(errno));
+        return false;
+    }
+    return true;
+}
 
 static std::string read_file_first_line(const std::string& path) {
     std::ifstream f(path);
@@ -36,26 +80,107 @@ static bool ensure_base_dir() {
     }
 }
 
+#include <sys/utsname.h>
+
+static std::string get_current_kmi() {
+    struct utsname uts{};
+    if (uname(&uts) != 0) {
+        LOG_ERROR("Failed to get uname");
+        return "";
+    }
+
+    const std::string full_version = uts.release;
+
+    const size_t dot1 = full_version.find('.');
+    if (dot1 == std::string::npos)
+        return "";
+    size_t dot2 = full_version.find('.', dot1 + 1);
+    if (dot2 == std::string::npos)
+        dot2 = full_version.length();
+
+    std::string major_minor = full_version.substr(0, dot2);
+
+    const size_t android_pos = full_version.find("-android");
+    if (android_pos != std::string::npos) {
+        const size_t ver_start = android_pos + 8;
+        size_t ver_end = full_version.find('-', ver_start);
+        if (ver_end == std::string::npos)
+            ver_end = full_version.length();
+
+        const std::string android_ver = full_version.substr(ver_start, ver_end - ver_start);
+        return "android" + android_ver + "-" + major_minor;
+    }
+
+    return "";
+}
+
+// Arch suffix for embedded hymofs .ko
+#if defined(__aarch64__)
+#define HYMO_ARCH_SUFFIX "_arm64"
+#elif defined(__arm__)
+#define HYMO_ARCH_SUFFIX "_armv7"
+#elif defined(__x86_64__)
+#define HYMO_ARCH_SUFFIX "_x86_64"
+#else
+#define HYMO_ARCH_SUFFIX "_arm64"
+#endif
+
 bool lkm_is_loaded() {
     return HymoFS::is_available();
 }
 
 bool lkm_load() {
-    if (!fs::exists(LKM_KO)) {
+    if (lkm_is_loaded()) {
+        return true;
+    }
+
+    std::string ko_path;
+    const std::string kmi = get_current_kmi();
+    
+    if (!kmi.empty() && ensure_base_dir()) {
+        const std::string asset_name = kmi + HYMO_ARCH_SUFFIX "_hymofs_lkm.ko";
+        
+        char tmp_path[256];
+        snprintf(tmp_path, sizeof(tmp_path), "%s/.lkm_XXXXXX", HYMO_DATA_DIR);
+        int tmp_fd = mkstemp(tmp_path);
+        if (tmp_fd >= 0) {
+            close(tmp_fd);
+            if (copy_asset_to_file(asset_name, tmp_path)) {
+                ko_path = tmp_path;
+            } else {
+                unlink(tmp_path);
+            }
+        }
+    }
+
+    // Fallback to legacy path if not embedded
+    if (ko_path.empty() && fs::exists(LKM_KO)) {
+        ko_path = LKM_KO;
+    }
+
+    if (ko_path.empty()) {
+        LOG_ERROR("HymoFS LKM: no matching module found for " + kmi);
         return false;
     }
-    std::string cmd = "insmod " + std::string(LKM_KO) + " hymo_syscall_nr=" +
-                      std::to_string(HYMO_SYSCALL_NR) + " 2>/dev/null";
-    int ret = std::system(cmd.c_str());
-    return (ret == 0);
+
+    char params[64];
+    snprintf(params, sizeof(params), "hymo_syscall_nr=%d", HYMO_SYSCALL_NR);
+    
+    bool ok = load_module_via_finit(ko_path.c_str(), params);
+    
+    // Cleanup temp file if we extracted it
+    if (ko_path != LKM_KO) {
+        unlink(ko_path.c_str());
+    }
+    
+    return ok;
 }
 
 bool lkm_unload() {
     if (HymoFS::is_available()) {
         HymoFS::clear_rules();
     }
-    int ret = std::system("rmmod hymofs_lkm 2>/dev/null");
-    return (ret == 0);
+    return unload_module_via_syscall("hymofs_lkm");
 }
 
 bool lkm_set_autoload(bool on) {
