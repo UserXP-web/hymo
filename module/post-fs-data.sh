@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # Hymo post-fs-data.sh: load HymoFS LKM only. Mount runs in metamount.sh.
-# All logging is done by hymod; wrapper outputs nothing.
+# LKM is embedded in hymod; use hymod lkm load to extract and load.
 
 MODDIR="${0%/*}"
 BASE_DIR="/data/adb/hymo"
@@ -13,9 +13,8 @@ AUTOLOAD=1
 [ "$AUTOLOAD" = "0" ] || [ "$AUTOLOAD" = "off" ] && AUTOLOAD=0
 [ -z "$AUTOLOAD" ] && AUTOLOAD=1
 
-# LKM selected at install in customize.sh; just load hymofs_lkm.ko
-if [ "$AUTOLOAD" = "1" ] && [ -f "$MODDIR/hymofs_lkm.ko" ]; then
-    HYMO_SYSCALL_NR=142
-    insmod "$MODDIR/hymofs_lkm.ko" hymo_syscall_nr="$HYMO_SYSCALL_NR" 2>/dev/null || true
+# Load LKM via hymod (embedded in binary)
+if [ "$AUTOLOAD" = "1" ] && [ -f "$MODDIR/hymod" ]; then
+    "$MODDIR/hymod" lkm load 2>/dev/null || true
 fi
 exit 0
