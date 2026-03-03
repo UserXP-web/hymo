@@ -403,6 +403,12 @@ bool repair_image(const fs::path& image_path) {
     return true;
 }
 
+// returns false if the path relation cannot be determined, or if paths match
+bool is_subpath(const fs::path& path, const fs::path& base) {
+    auto rel = fs::relative(path, base);
+    return !rel.empty() && rel.native()[0] != '.';
+}
+
 static bool native_cp_r(const fs::path& src, const fs::path& dst) {
     try {
         LOG_DEBUG("native_cp_r: " + src.string() + " -> " + dst.string());
@@ -418,18 +424,20 @@ static bool native_cp_r(const fs::path& src, const fs::path& dst) {
             auto dst_path = dst / entry.path().filename();
             count++;
 
-            if (fs::is_symlink(entry)) {
+            if (fs::is_directory(entry)) {
+                if (!fs::is_symlink(entry) || !is_subpath(fs::read_symlink(entry.path()), entry)) {
+                    if (!native_cp_r(entry.path(), dst_path)) {
+                        LOG_ERROR("Failed to copy dir: " + entry.path().string());
+                        return false;
+                    }
+                }
+            } else if (fs::is_symlink(entry)) {
                 auto link_target = fs::read_symlink(entry.path());
                 if (fs::exists(dst_path)) {
                     fs::remove(dst_path);
                 }
                 fs::create_symlink(link_target, dst_path);
                 lsetfilecon(dst_path, get_context_for_path(dst_path));
-            } else if (fs::is_directory(entry)) {
-                if (!native_cp_r(entry.path(), dst_path)) {
-                    LOG_ERROR("Failed to copy dir: " + entry.path().string());
-                    return false;
-                }
             } else {
                 fs::copy_file(entry.path(), dst_path, fs::copy_options::overwrite_existing);
                 fs::permissions(dst_path, fs::status(entry.path()).permissions());
